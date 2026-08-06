@@ -28,16 +28,16 @@ RANDOM_STATE = 42
 
 # Shared macaron / pastel palette used across every chart in the dashboard.
 MACARON_COLORS = [
-    "#FF6F91",  # raspberry
-    "#FF9671",  # peach/coral
-    "#FFC75F",  # mango
-    "#6FCF97",  # pistachio
-    "#4D8FAC",  # sea blue
-    "#9B72CF",  # grape/lavender
-    "#F45B69",  # rose red
+    "#003F5C",  # deep navy teal
+    "#0A6E8C",  # ocean blue
+    "#1B98A0",  # teal
+    "#2EC4B6",  # aqua
+    "#5FBFCB",  # seafoam
+    "#7B9EA8",  # slate blue-gray
+    "#0E4D64",  # dark ocean
 ]
 # Two-tone macaron gradient for continuous ("Count"-style) scales, e.g. the confusion matrix.
-MACARON_GRADIENT = ["#FFF3F5", "#FFB3BA"]
+MACARON_GRADIENT = ["#E6F5F7", "#0A6E8C"]
 
 
 @st.cache_data(show_spinner=False)
