@@ -19,6 +19,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 st.set_page_config(page_title="Obesity Levels Predictor", layout="wide")
 
@@ -211,6 +212,62 @@ def section_charts(subset: pd.DataFrame) -> None:
         tooltip=[lifestyle, TARGET, "Count"],
     ).properties(height=340)
     st.altair_chart(lifestyle_chart, width="stretch")
+
+    st.subheader("Alcohol consumption levels by gender")
+    fig, ax = plt.subplots(figsize=(8, 5))
+    calc_order = [level for level in ["no", "Sometimes", "Frequently", "Always"] if level in subset["CALC"].unique()]
+    sns.countplot(
+        data=subset,
+        x="Gender",
+        hue="CALC",
+        hue_order=calc_order,
+        palette=MACARON_COLORS[: len(calc_order)],
+        ax=ax,
+    )
+    ax.set_title("Count of Alcohol Consumption Levels by Gender")
+    ax.set_xlabel("Gender")
+    ax.set_ylabel("Count")
+    ax.tick_params(axis="x", rotation=0)
+    ax.legend(title="CALC")
+    fig.tight_layout()
+    st.pyplot(fig)
+    models, results, y_test, _ = train_models(data)
+    ranking = results[["Model", "Accuracy", "Weighted F1"]].sort_values("Weighted F1", ascending=False)
+    st.subheader("Model comparison")
+    st.caption("All models use the same stratified 80/20 split (random state 42). Categorical inputs are one-hot encoded; numeric inputs are standardized.")
+    st.dataframe(
+        ranking.style.format({"Accuracy": "{:.2%}", "Weighted F1": "{:.2%}"}),
+        width="stretch",
+        hide_index=True,
+    )
+    performance = ranking.melt("Model", var_name="Metric", value_name="Score")
+    chart = alt.Chart(performance).mark_bar().encode(
+        x=alt.X("Model:N", sort="-y"),
+        y=alt.Y("Score:Q", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
+        color=alt.Color("Metric:N", scale=alt.Scale(range=MACARON_COLORS)),
+        xOffset="Metric:N",
+        tooltip=["Model", "Metric", alt.Tooltip("Score:Q", format=".2%")],
+    ).properties(height=340)
+    st.altair_chart(chart, width="stretch")
+ 
+    chosen = st.selectbox("Inspect model", ranking["Model"].tolist())
+    predicted = results.loc[results["Model"] == chosen, "Predictions"].iloc[0]
+    report = pd.DataFrame(classification_report(y_test, predicted, output_dict=True)).T
+    st.subheader(f"{chosen}: class-level metrics")
+    st.dataframe(report[["precision", "recall", "f1-score", "support"]].style.format({"precision": "{:.2%}", "recall": "{:.2%}", "f1-score": "{:.2%}", "support": "{:.0f}"}), width="stretch")
+    matrix = confusion_matrix(y_test, predicted, labels=sorted(data[TARGET].unique()))
+    labels = sorted(data[TARGET].unique())
+    matrix_df = pd.DataFrame(matrix, index=labels, columns=labels).rename_axis("Actual").reset_index().melt("Actual", var_name="Predicted", value_name="Count")
+    heatmap = alt.Chart(matrix_df).mark_rect().encode(
+        x=alt.X("Predicted:N", sort=labels), y=alt.Y("Actual:N", sort=labels),
+        color=alt.Color(
+            "Count:Q",
+            scale=alt.Scale(range=MACARON_GRADIENT),
+        ),
+        tooltip=["Actual", "Predicted", "Count"]
+    ).properties(height=360, title="Confusion matrix")
+    st.altair_chart(heatmap, width="stretch")
+    return models, results
 
 
 def section_models(data: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
