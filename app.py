@@ -39,7 +39,7 @@ MACARON_COLORS = [
 MACARON_GRADIENT = ["#E3F2FD", "#0B3D91"]
 # Dedicated color pairs for binary splits, so Gender/family-history charts
 # don't all default to the first two colors (rose, peach) in MACARON_COLORS.
-GENDER_PALETTE = ["#5B8DB8", "#D4B85A"]  # dusty blue, mustard yellow
+GENDER_PALETTE = ["#D4B85A", "#5B8DB8"]  # mustard yellow, dusty blue
 FAMILY_HISTORY_PALETTE = ["#E27D8C", "#9C7FB8"]  # dusty rose, muted lavender
 
 
