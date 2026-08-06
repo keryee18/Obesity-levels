@@ -41,7 +41,7 @@ MACARON_GRADIENT = ["#E3F2FD", "#0B3D91"]
 # don't all default to the first two colors (rose, peach) in MACARON_COLORS.
 GENDER_PALETTE = ["#5B8DB8", "#D4B85A"]  # dusty blue, mustard yellow
 FAMILY_HISTORY_PALETTE = ["#E27D8C", "#9C7FB8"]  # dusty rose, muted lavender
-
+FAVC_PALETTE = ["#7FB685", "#C97B8C"]  # sage mint (no), mauve (yes)
 
 @st.cache_data(show_spinner=False)
 def load_data() -> pd.DataFrame:
