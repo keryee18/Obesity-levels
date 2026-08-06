@@ -123,7 +123,9 @@ def section_charts(subset: pd.DataFrame) -> None:
     if subset.empty:
         st.warning("No records match the selected filters.")
         return
-    st.subheader("Obesity-level distribution")
+
+    # --- Bar Chart (Original Altair) ---
+    st.subheader("Obesity-level distribution (Bar Chart)")
     counts = subset[TARGET].value_counts().rename_axis("Obesity level").reset_index(name="Count")
     chart = alt.Chart(counts).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
         x=alt.X("Obesity level:N", sort="-y", title=None),
@@ -131,7 +133,7 @@ def section_charts(subset: pd.DataFrame) -> None:
         color=alt.Color("Obesity level:N", legend=None),
         tooltip=["Obesity level", "Count"],
     ).properties(height=340)
-    st.altair_chart(chart, width="stretch")
+    st.altair_chart(chart, use_container_width=True)
 
     # --- Integrated Matplotlib / Seaborn Pie Chart ---
     st.subheader("Obesity-level distribution (Pie Chart)")
@@ -156,7 +158,8 @@ def section_charts(subset: pd.DataFrame) -> None:
         # Display pie chart in Streamlit
         st.pyplot(fig)
         plt.close(fig)  # Clean up memory after rendering
-        
+
+    # --- Numeric Variable Distribution ---
     left, right = st.columns(2)
     with left:
         numeric_choices = ["Age", "Height", "Weight", "FCVC", "NCP", "CH2O", "FAF", "TUE"]
@@ -167,16 +170,9 @@ def section_charts(subset: pd.DataFrame) -> None:
             color=alt.Color(f"{TARGET}:N", title="Obesity level"),
             tooltip=[alt.Tooltip("count():Q", title="People")],
         ).properties(height=300)
-        st.altair_chart(histogram, width="stretch")
-    # with right:
-    #     scatter = alt.Chart(subset).mark_circle(size=65, opacity=0.65).encode(
-    #         x=alt.X("Height:Q", title="Height (m)"),
-    #         y=alt.Y("Weight:Q", title="Weight (kg)"),
-    #         color=alt.Color(f"{TARGET}:N", title="Obesity level"),
-    #         tooltip=["Gender", "Age", "Height", "Weight", TARGET],
-    #     ).interactive().properties(height=300, title="Height vs weight")
-    #     st.altair_chart(scatter, width="stretch")
+        st.altair_chart(histogram, use_container_width=True)
 
+    # --- Lifestyle Factor Section ---
     st.subheader("Lifestyle factor by obesity level")
     lifestyle = st.selectbox(
         "Choose a lifestyle factor", ["CAEC", "CALC", "FAVC", "SMOKE", "SCC", "MTRANS", "family_history_with_overweight"]
@@ -188,7 +184,7 @@ def section_charts(subset: pd.DataFrame) -> None:
         color=alt.Color(f"{TARGET}:N", title="Obesity level"),
         tooltip=[lifestyle, TARGET, "Count"],
     ).properties(height=340)
-    st.altair_chart(lifestyle_chart, width="stretch")
+    st.altair_chart(lifestyle_chart, use_container_width=True)
 
 
 def section_models(data: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
