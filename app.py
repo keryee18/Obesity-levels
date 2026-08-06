@@ -20,7 +20,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
 
-st.set_page_config(page_title="Obesity Levels Predictor", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="Obesity Levels Predictor", layout="wide")
 
 DATA_PATH = Path(__file__).parent / "data" / "ObesityDataSet_raw_and_data_sinthetic.csv"
 TARGET = "NObeyesdad"
@@ -133,25 +133,25 @@ def section_charts(subset: pd.DataFrame) -> None:
     ).properties(height=340)
     st.altair_chart(chart, width="stretch")
 
-    left, right = st.columns(2)
-    with left:
-        numeric_choices = ["Age", "Height", "Weight", "FCVC", "NCP", "CH2O", "FAF", "TUE"]
-        variable = st.selectbox("Numeric variable distribution", numeric_choices)
-        histogram = alt.Chart(subset).mark_bar(opacity=0.75).encode(
-            x=alt.X(f"{variable}:Q", bin=alt.Bin(maxbins=24)),
-            y=alt.Y("count():Q", title="People"),
-            color=alt.Color(f"{TARGET}:N", title="Obesity level"),
-            tooltip=[alt.Tooltip("count():Q", title="People")],
-        ).properties(height=300)
-        st.altair_chart(histogram, width="stretch")
-    with right:
-        scatter = alt.Chart(subset).mark_circle(size=65, opacity=0.65).encode(
-            x=alt.X("Height:Q", title="Height (m)"),
-            y=alt.Y("Weight:Q", title="Weight (kg)"),
-            color=alt.Color(f"{TARGET}:N", title="Obesity level"),
-            tooltip=["Gender", "Age", "Height", "Weight", TARGET],
-        ).interactive().properties(height=300, title="Height vs weight")
-        st.altair_chart(scatter, width="stretch")
+    # left, right = st.columns(2)
+    # with left:
+    #     numeric_choices = ["Age", "Height", "Weight", "FCVC", "NCP", "CH2O", "FAF", "TUE"]
+    #     variable = st.selectbox("Numeric variable distribution", numeric_choices)
+    #     histogram = alt.Chart(subset).mark_bar(opacity=0.75).encode(
+    #         x=alt.X(f"{variable}:Q", bin=alt.Bin(maxbins=24)),
+    #         y=alt.Y("count():Q", title="People"),
+    #         color=alt.Color(f"{TARGET}:N", title="Obesity level"),
+    #         tooltip=[alt.Tooltip("count():Q", title="People")],
+    #     ).properties(height=300)
+    #     st.altair_chart(histogram, width="stretch")
+    # with right:
+    #     scatter = alt.Chart(subset).mark_circle(size=65, opacity=0.65).encode(
+    #         x=alt.X("Height:Q", title="Height (m)"),
+    #         y=alt.Y("Weight:Q", title="Weight (kg)"),
+    #         color=alt.Color(f"{TARGET}:N", title="Obesity level"),
+    #         tooltip=["Gender", "Age", "Height", "Weight", TARGET],
+    #     ).interactive().properties(height=300, title="Height vs weight")
+    #     st.altair_chart(scatter, width="stretch")
 
     st.subheader("Lifestyle factor by obesity level")
     lifestyle = st.selectbox(
@@ -242,7 +242,7 @@ def section_prediction(data: pd.DataFrame) -> None:
 
 
 def main() -> None:
-    st.title("⚖️ Obesity Levels Prediction Dashboard")
+    st.title("Obesity Levels Prediction Dashboard")
     st.write("Explore the eating-habit and physical-condition data, compare classifiers, and make an individual prediction.")
     uploaded = st.sidebar.file_uploader("Use a different obesity CSV (optional)", type="csv")
     try:
