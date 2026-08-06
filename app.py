@@ -140,15 +140,25 @@ def section_charts(subset: pd.DataFrame) -> None:
         st.altair_chart(chart, width="stretch")
 
     with pie_col:
+        macaron_colors = [
+            "#FFB3BA",  # macaron pink
+            "#FFDFBA",  # macaron peach
+            "#FFFFBA",  # macaron yellow
+            "#BAFFC9",  # macaron mint
+            "#BAE1FF",  # macaron sky blue
+            "#D5BAFF",  # macaron lavender
+            "#FFC9DE",  # macaron rose
+        ]
+        colors = [macaron_colors[i % len(macaron_colors)] for i in range(len(counts))]
         fig, ax = plt.subplots(figsize=(6, 6))
-        colors = plt.cm.viridis(np.linspace(0, 1, len(counts)))
         ax.pie(
             counts.values,
             labels=counts.index,
             autopct="%1.1f%%",
             startangle=90,
             colors=colors,
-            textprops={"fontsize": 9},
+            textprops={"fontsize": 9, "color": "#4a4a4a"},
+            wedgeprops={"edgecolor": "white", "linewidth": 1.5},
         )
         ax.set_title("Distribution of Obesity Levels (Pie Chart)")
         ax.axis("equal")
