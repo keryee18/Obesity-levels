@@ -351,6 +351,22 @@ def section_charts(subset: pd.DataFrame) -> None:
     ).properties(height=380)
     st.altair_chart(activity_chart, width="stretch")
 
+    st.subheader("BMI distribution across weight categories by gender")
+    bmi_data = subset.copy()
+    bmi_data["BMI"] = bmi_data["Weight"] / (bmi_data["Height"] ** 2)
+    bmi_chart = alt.Chart(bmi_data).mark_boxplot(size=28, outliers=True).encode(
+        x=alt.X(f"{TARGET}:N", title="Weight category", sort=weight_order),
+        y=alt.Y("BMI:Q", title="Body Mass Index (BMI)"),
+        color=alt.Color(
+            "Gender:N",
+            title="Gender",
+            scale=alt.Scale(range=GENDER_PALETTE),
+        ),
+        xOffset=alt.XOffset("Gender:N"),
+        tooltip=["Gender", TARGET, alt.Tooltip("BMI:Q", format=".1f")],
+    ).properties(height=420)
+    st.altair_chart(bmi_chart, width="stretch")
+
 
 def section_models(data: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
     models, results, y_test, _ = train_models(data)
