@@ -194,14 +194,24 @@ def section_charts(subset: pd.DataFrame) -> None:
             tooltip=[alt.Tooltip("count():Q", title="People")],
         ).properties(height=300)
         st.altair_chart(histogram, width="stretch")
-    # with right:
-    #     scatter = alt.Chart(subset).mark_circle(size=65, opacity=0.65).encode(
-    #         x=alt.X("Height:Q", title="Height (m)"),
-    #         y=alt.Y("Weight:Q", title="Weight (kg)"),
-    #         color=alt.Color(f"{TARGET}:N", title="Obesity level"),
-    #         tooltip=["Gender", "Age", "Height", "Weight", TARGET],
-    #     ).interactive().properties(height=300, title="Height vs weight")
-    #     st.altair_chart(scatter, width="stretch")
+
+    with right:
+        st.subheader("Alcohol consumption levels by gender")
+        calc_order = [level for level in ["no", "Sometimes", "Frequently", "Always"] if level in subset["CALC"].unique()]
+        calc_counts = subset.groupby(["Gender", "CALC"]).size().reset_index(name="Count")
+        alcohol_chart = alt.Chart(calc_counts).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+            x=alt.X("Gender:N", title="Gender"),
+            y=alt.Y("Count:Q", title="Count"),
+            color=alt.Color(
+                "CALC:N",
+                title="CALC",
+                sort=calc_order,
+                scale=alt.Scale(domain=calc_order, range=MACARON_COLORS[: len(calc_order)]),
+            ),
+            xOffset=alt.XOffset("CALC:N", sort=calc_order),
+            tooltip=["Gender", "CALC", "Count"],
+        ).properties(height=300)
+        st.altair_chart(alcohol_chart, width="stretch")
 
     st.subheader("Lifestyle factor by obesity level")
     lifestyle = st.selectbox(
@@ -219,23 +229,6 @@ def section_charts(subset: pd.DataFrame) -> None:
         tooltip=[lifestyle, TARGET, "Count"],
     ).properties(height=340)
     st.altair_chart(lifestyle_chart, width="stretch")
-
-    st.subheader("Alcohol consumption levels by gender")
-    calc_order = [level for level in ["no", "Sometimes", "Frequently", "Always"] if level in subset["CALC"].unique()]
-    calc_counts = subset.groupby(["Gender", "CALC"]).size().reset_index(name="Count")
-    alcohol_chart = alt.Chart(calc_counts).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-        x=alt.X("Gender:N", title="Gender"),
-        y=alt.Y("Count:Q", title="Count"),
-        color=alt.Color(
-            "CALC:N",
-            title="CALC",
-            sort=calc_order,
-            scale=alt.Scale(domain=calc_order, range=MACARON_COLORS[: len(calc_order)]),
-        ),
-        xOffset=alt.XOffset("CALC:N", sort=calc_order),
-        tooltip=["Gender", "CALC", "Count"],
-    ).properties(height=340, title="Count of Alcohol Consumption Levels by Gender")
-    st.altair_chart(alcohol_chart, width="stretch")
 
 
 def section_models(data: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
