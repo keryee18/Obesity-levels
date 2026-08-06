@@ -27,6 +27,7 @@ DATA_PATH = Path(__file__).parent / "data" / "ObesityDataSet_raw_and_data_sinthe
 TARGET = "NObeyesdad"
 RANDOM_STATE = 42
 
+# Shared blue-tone palette used across every chart in the dashboard.
 MACARON_COLORS = [
     "#E27D8C",  # dusty rose
     "#E8A87C",  # terracotta peach
@@ -159,15 +160,18 @@ def section_charts(subset: pd.DataFrame) -> None:
     with pie_col:
         colors = [MACARON_COLORS[i % len(MACARON_COLORS)] for i in range(len(counts))]
         fig, ax = plt.subplots(figsize=(6, 6))
-        ax.pie(
+        _, outer_labels, inner_labels = ax.pie(
             counts.values,
             labels=counts.index,
             autopct="%1.1f%%",
             startangle=90,
             colors=colors,
-            textprops={"fontsize": 9, "color": "#4a4a4a"},
+            textprops={"fontsize": 9, "color": "#2a2a2a"},
             wedgeprops={"edgecolor": "white", "linewidth": 1.5},
         )
+        for label in inner_labels:
+            label.set_color("white")
+            label.set_fontweight("bold")
         ax.set_title("Distribution of Obesity Levels (Pie Chart)")
         ax.axis("equal")
         st.pyplot(fig)
@@ -231,46 +235,6 @@ def section_charts(subset: pd.DataFrame) -> None:
     ax.legend(title="CALC")
     fig.tight_layout()
     st.pyplot(fig)
-    models, results, y_test, _ = train_models(data)
-    ranking = results[["Model", "Accuracy", "Weighted F1"]].sort_values("Weighted F1", ascending=False)
-    st.subheader("Model comparison")
-    st.caption("All models use the same stratified 80/20 split (random state 42). Categorical inputs are one-hot encoded; numeric inputs are standardized.")
-    st.dataframe(
-        ranking.style.format({"Accuracy": "{:.2%}", "Weighted F1": "{:.2%}"}),
-        width="stretch",
-        hide_index=True,
-    )
-    performance = ranking.melt("Model", var_name="Metric", value_name="Score")
-    chart = alt.Chart(performance).mark_bar().encode(
-        x=alt.X("Model:N", sort="-y"),
-        y=alt.Y("Score:Q", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
-        color=alt.Color("Metric:N", scale=alt.Scale(range=MACARON_COLORS)),
-        xOffset="Metric:N",
-        tooltip=["Model", "Metric", alt.Tooltip("Score:Q", format=".2%")],
-    ).properties(height=340)
-    st.altair_chart(chart, width="stretch")
- 
-    chosen = st.selectbox("Inspect model", ranking["Model"].tolist())
-    predicted = results.loc[results["Model"] == chosen, "Predictions"].iloc[0]
-    report = pd.DataFrame(classification_report(y_test, predicted, output_dict=True)).T
-    st.subheader(f"{chosen}: class-level metrics")
-    st.dataframe(report[["precision", "recall", "f1-score", "support"]].style.format({"precision": "{:.2%}", "recall": "{:.2%}", "f1-score": "{:.2%}", "support": "{:.0f}"}), width="stretch")
-    matrix = confusion_matrix(y_test, predicted, labels=sorted(data[TARGET].unique()))
-    labels = sorted(data[TARGET].unique())
-    matrix_df = pd.DataFrame(matrix, index=labels, columns=labels).rename_axis("Actual").reset_index().melt("Actual", var_name="Predicted", value_name="Count")
-    heatmap = alt.Chart(matrix_df).mark_rect().encode(
-        x=alt.X("Predicted:N", sort=labels), y=alt.Y("Actual:N", sort=labels),
-        color=alt.Color(
-            "Count:Q",
-            scale=alt.Scale(range=MACARON_GRADIENT),
-        ),
-        tooltip=["Actual", "Predicted", "Count"]
-    ).properties(height=360, title="Confusion matrix")
-    st.altair_chart(heatmap, width="stretch")
-    return models, results
-
-
-def section_models(data: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
     models, results, y_test, _ = train_models(data)
     ranking = results[["Model", "Accuracy", "Weighted F1"]].sort_values("Weighted F1", ascending=False)
     st.subheader("Model comparison")
