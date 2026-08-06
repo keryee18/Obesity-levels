@@ -133,6 +133,30 @@ def section_charts(subset: pd.DataFrame) -> None:
     ).properties(height=340)
     st.altair_chart(chart, width="stretch")
 
+    # --- Integrated Matplotlib / Seaborn Pie Chart ---
+    st.subheader("Obesity-level distribution (Pie Chart)")
+    obesity_level_counts = subset[TARGET].value_counts()
+
+    if not obesity_level_counts.empty:
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.pie(
+            obesity_level_counts,
+            labels=obesity_level_counts.index,
+            autopct="%1.1f%%",
+            startangle=140,
+            colors=sns.color_palette("viridis", len(obesity_level_counts)),
+        )
+        ax.set_title("Distribution of Obesity Levels")
+        ax.axis("equal")  # Equal aspect ratio ensures pie is drawn as a circle
+        fig.tight_layout()
+
+        # Display pie chart in Streamlit
+        st.pyplot(fig)
+        plt.close(fig)  # Clean up memory after rendering
+        
     left, right = st.columns(2)
     with left:
         numeric_choices = ["Age", "Height", "Weight", "FCVC", "NCP", "CH2O", "FAF", "TUE"]
