@@ -18,8 +18,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.tree import DecisionTreeClassifier
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 st.set_page_config(page_title="Obesity Levels Predictor", layout="wide")
 
@@ -158,26 +156,22 @@ def section_charts(subset: pd.DataFrame) -> None:
         st.altair_chart(chart, width="stretch")
 
     with pie_col:
-        colors = [MACARON_COLORS[i % len(MACARON_COLORS)] for i in range(len(counts))]
-        plt.rcParams["font.family"] = "sans-serif"
-        fig, ax = plt.subplots(figsize=(2.6, 2.6), dpi=150)
-        _, outer_labels, inner_labels = ax.pie(
-            counts.values,
-            labels=counts.index,
-            autopct="%1.1f%%",
-            startangle=90,
-            colors=colors,
-            textprops={"fontsize": 6, "color": "#3a3a3a", "fontweight": "normal"},
-            wedgeprops={"edgecolor": "white", "linewidth": 1},
-            labeldistance=1.08,
-            pctdistance=0.68,
+        counts_df = counts.rename_axis("Obesity level").reset_index(name="Count")
+        counts_df["Percent"] = counts_df["Count"] / counts_df["Count"].sum()
+        pie_chart = alt.Chart(counts_df).mark_arc(stroke="white", strokeWidth=1).encode(
+            theta=alt.Theta("Count:Q", stack=True),
+            color=alt.Color(
+                "Obesity level:N",
+                legend=None,
+                scale=alt.Scale(range=MACARON_COLORS),
+            ),
+            tooltip=["Obesity level", "Count", alt.Tooltip("Percent:Q", format=".1%")],
+        ).properties(height=340, title="Distribution of Obesity Levels (Pie Chart)")
+        pie_labels = alt.Chart(counts_df).mark_text(radius=115, size=11, color="white", fontWeight="bold").encode(
+            theta=alt.Theta("Count:Q", stack=True),
+            text=alt.Text("Percent:Q", format=".1%"),
         )
-        for label in inner_labels:
-            label.set_color("white")
-            label.set_fontsize(6)
-            label.set_fontweight("normal")
-        ax.set_title("Distribution of Obesity Levels (Pie Chart)", fontsize=8, fontweight="bold", color="#2a2a2a", pad=8)
-        st.pyplot(fig, use_container_width=False)
+        st.altair_chart(pie_chart + pie_labels, width="stretch")
 
     left, right = st.columns(2)
     with left:
@@ -221,26 +215,21 @@ def section_charts(subset: pd.DataFrame) -> None:
     st.altair_chart(lifestyle_chart, width="stretch")
 
     st.subheader("Alcohol consumption levels by gender")
-    plt.rcParams["font.family"] = "sans-serif"
-    fig, ax = plt.subplots(figsize=(3.6, 2.6), dpi=150)
     calc_order = [level for level in ["no", "Sometimes", "Frequently", "Always"] if level in subset["CALC"].unique()]
-    sns.countplot(
-        data=subset,
-        x="Gender",
-        hue="CALC",
-        hue_order=calc_order,
-        palette=MACARON_COLORS[: len(calc_order)],
-        ax=ax,
-    )
-    ax.set_title("Count of Alcohol Consumption Levels by Gender", fontsize=8, fontweight="bold", color="#2a2a2a", pad=8)
-    ax.set_xlabel("Gender", fontsize=7, color="#3a3a3a")
-    ax.set_ylabel("Count", fontsize=7, color="#3a3a3a")
-    ax.tick_params(axis="both", labelsize=6, rotation=0)
-    ax.legend(title="CALC", fontsize=6, title_fontsize=6.5)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    fig.tight_layout()
-    st.pyplot(fig, use_container_width=False)
+    calc_counts = subset.groupby(["Gender", "CALC"]).size().reset_index(name="Count")
+    alcohol_chart = alt.Chart(calc_counts).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+        x=alt.X("Gender:N", title="Gender"),
+        y=alt.Y("Count:Q", title="Count"),
+        color=alt.Color(
+            "CALC:N",
+            title="CALC",
+            sort=calc_order,
+            scale=alt.Scale(domain=calc_order, range=MACARON_COLORS[: len(calc_order)]),
+        ),
+        xOffset=alt.XOffset("CALC:N", sort=calc_order),
+        tooltip=["Gender", "CALC", "Count"],
+    ).properties(height=340, title="Count of Alcohol Consumption Levels by Gender")
+    st.altair_chart(alcohol_chart, width="stretch")
 
 
 def section_models(data: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
