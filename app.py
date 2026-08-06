@@ -18,8 +18,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.tree import DecisionTreeClassifier
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 
 st.set_page_config(page_title="Obesity Levels Predictor", layout="wide")
@@ -154,15 +152,6 @@ def section_charts(subset: pd.DataFrame) -> None:
     #         tooltip=["Gender", "Age", "Height", "Weight", TARGET],
     #     ).interactive().properties(height=300, title="Height vs weight")
     #     st.altair_chart(scatter, width="stretch")
-
-    sns.countplot(data=obesity, x='Gender', hue='CALC', palette='viridis')
-    plt.title('Count of Alcohol Consumption Levels by Gender')
-    plt.xlabel('Gender')
-    plt.ylabel('Count')
-    plt.xticks(rotation=0)
-    plt.legend(title='CALC')
-    plt.tight_layout()
-    plt.show()
 
     st.subheader("Lifestyle factor by obesity level")
     lifestyle = st.selectbox(
