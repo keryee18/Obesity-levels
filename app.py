@@ -244,7 +244,7 @@ def section_charts(subset: pd.DataFrame) -> None:
             ),
             xOffset=alt.XOffset("Gender:N"),
             tooltip=["MTRANS", "Gender", "Count"],
-        ).properties(height=340)
+        ).properties(height=520)
         st.altair_chart(transport_chart, width="stretch")
 
     with scatter_col:
@@ -258,7 +258,7 @@ def section_charts(subset: pd.DataFrame) -> None:
                 scale=alt.Scale(range=MACARON_COLORS),
             ),
             tooltip=["Gender", "Age", "Weight", TARGET],
-        ).properties(height=340).interactive()
+        ).properties(height=520).interactive()
         st.altair_chart(scatter_chart, width="stretch")
 
 
@@ -367,7 +367,6 @@ def main() -> None:
         section_models(data)
     with prediction:
         section_prediction(data)
-    st.caption("Educational dashboard — predictions are estimates from the supplied dataset, not medical advice.")
 
 
 if __name__ == "__main__":
