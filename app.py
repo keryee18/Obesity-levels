@@ -172,7 +172,7 @@ def section_charts(subset: pd.DataFrame) -> None:
             color=alt.Color(
                 "Obesity level:N",
                 sort=counts_df["Obesity level"].tolist(),
-                legend=alt.Legend(title="Obesity level", orient="right"),
+                legend=alt.Legend(title="Obesity level", orient="right", symbolType="square"),
                 scale=alt.Scale(range=MACARON_COLORS),
             ),
             tooltip=["Obesity level", "Count", alt.Tooltip("Percent:Q", format=".1%")],
@@ -260,6 +260,7 @@ def section_charts(subset: pd.DataFrame) -> None:
                 "Gender:N",
                 title="Gender",
                 scale=alt.Scale(range=GENDER_PALETTE),
+                legend=alt.Legend(symbolType="square"),
             ),
             tooltip=["Gender", "Age", "Weight", TARGET],
         ).properties(height=520).interactive()
