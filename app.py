@@ -26,6 +26,19 @@ DATA_PATH = Path(__file__).parent / "data" / "ObesityDataSet_raw_and_data_sinthe
 TARGET = "NObeyesdad"
 RANDOM_STATE = 42
 
+# Shared macaron / pastel palette used across every chart in the dashboard.
+MACARON_COLORS = [
+    "#FFB3BA",  # macaron pink
+    "#FFDFBA",  # macaron peach
+    "#FFFFBA",  # macaron yellow
+    "#BAFFC9",  # macaron mint
+    "#BAE1FF",  # macaron sky blue
+    "#D5BAFF",  # macaron lavender
+    "#FFC9DE",  # macaron rose
+]
+# Two-tone macaron gradient for continuous ("Count"-style) scales, e.g. the confusion matrix.
+MACARON_GRADIENT = ["#FFF3F5", "#FFB3BA"]
+
 
 @st.cache_data(show_spinner=False)
 def load_data(uploaded_bytes: bytes | None = None) -> pd.DataFrame:
@@ -134,22 +147,17 @@ def section_charts(subset: pd.DataFrame) -> None:
         chart = alt.Chart(counts_df).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
             x=alt.X("Obesity level:N", sort="-y", title=None),
             y=alt.Y("Count:Q", title="People"),
-            color=alt.Color("Obesity level:N", legend=None),
+            color=alt.Color(
+                "Obesity level:N",
+                legend=None,
+                scale=alt.Scale(range=MACARON_COLORS),
+            ),
             tooltip=["Obesity level", "Count"],
         ).properties(height=340)
         st.altair_chart(chart, width="stretch")
 
     with pie_col:
-        macaron_colors = [
-            "#FFB3BA",  # macaron pink
-            "#FFDFBA",  # macaron peach
-            "#FFFFBA",  # macaron yellow
-            "#BAFFC9",  # macaron mint
-            "#BAE1FF",  # macaron sky blue
-            "#D5BAFF",  # macaron lavender
-            "#FFC9DE",  # macaron rose
-        ]
-        colors = [macaron_colors[i % len(macaron_colors)] for i in range(len(counts))]
+        colors = [MACARON_COLORS[i % len(MACARON_COLORS)] for i in range(len(counts))]
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.pie(
             counts.values,
@@ -168,10 +176,14 @@ def section_charts(subset: pd.DataFrame) -> None:
     with left:
         numeric_choices = ["Age", "Height", "Weight", "FCVC", "NCP", "CH2O", "FAF", "TUE"]
         variable = st.selectbox("Numeric variable distribution", numeric_choices)
-        histogram = alt.Chart(subset).mark_bar(opacity=0.75).encode(
+        histogram = alt.Chart(subset).mark_bar(opacity=0.85).encode(
             x=alt.X(f"{variable}:Q", bin=alt.Bin(maxbins=24)),
             y=alt.Y("count():Q", title="People"),
-            color=alt.Color(f"{TARGET}:N", title="Obesity level"),
+            color=alt.Color(
+                f"{TARGET}:N",
+                title="Obesity level",
+                scale=alt.Scale(range=MACARON_COLORS),
+            ),
             tooltip=[alt.Tooltip("count():Q", title="People")],
         ).properties(height=300)
         st.altair_chart(histogram, width="stretch")
@@ -192,7 +204,11 @@ def section_charts(subset: pd.DataFrame) -> None:
     lifestyle_chart = alt.Chart(grouped).mark_bar().encode(
         x=alt.X(f"{lifestyle}:N", title=lifestyle),
         y=alt.Y("Count:Q", stack="normalize", title="Proportion"),
-        color=alt.Color(f"{TARGET}:N", title="Obesity level"),
+        color=alt.Color(
+            f"{TARGET}:N",
+            title="Obesity level",
+            scale=alt.Scale(range=MACARON_COLORS),
+        ),
         tooltip=[lifestyle, TARGET, "Count"],
     ).properties(height=340)
     st.altair_chart(lifestyle_chart, width="stretch")
@@ -212,7 +228,7 @@ def section_models(data: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
     chart = alt.Chart(performance).mark_bar().encode(
         x=alt.X("Model:N", sort="-y"),
         y=alt.Y("Score:Q", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
-        color="Metric:N",
+        color=alt.Color("Metric:N", scale=alt.Scale(range=MACARON_COLORS)),
         xOffset="Metric:N",
         tooltip=["Model", "Metric", alt.Tooltip("Score:Q", format=".2%")],
     ).properties(height=340)
@@ -228,7 +244,11 @@ def section_models(data: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
     matrix_df = pd.DataFrame(matrix, index=labels, columns=labels).rename_axis("Actual").reset_index().melt("Actual", var_name="Predicted", value_name="Count")
     heatmap = alt.Chart(matrix_df).mark_rect().encode(
         x=alt.X("Predicted:N", sort=labels), y=alt.Y("Actual:N", sort=labels),
-        color=alt.Color("Count:Q", scale=alt.Scale(scheme="blues")), tooltip=["Actual", "Predicted", "Count"]
+        color=alt.Color(
+            "Count:Q",
+            scale=alt.Scale(range=MACARON_GRADIENT),
+        ),
+        tooltip=["Actual", "Predicted", "Count"]
     ).properties(height=360, title="Confusion matrix")
     st.altair_chart(heatmap, width="stretch")
     return models, results
@@ -266,6 +286,11 @@ def section_prediction(data: pd.DataFrame) -> None:
             alt.Chart(probability_table).mark_bar().encode(
                 x=alt.X("Probability:Q", axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
                 y=alt.Y("Obesity level:N", sort="-x"),
+                color=alt.Color(
+                    "Obesity level:N",
+                    legend=None,
+                    scale=alt.Scale(range=MACARON_COLORS),
+                ),
                 tooltip=["Obesity level", alt.Tooltip("Probability:Q", format=".2%")],
             ).properties(height=260, title="Prediction probabilities"),
             width="stretch",
@@ -299,5 +324,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
