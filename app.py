@@ -40,8 +40,7 @@ MACARON_GRADIENT = ["#E3F2FD", "#0B3D91"]
 # Dedicated color pairs for binary splits, so Gender/family-history charts
 # don't all default to the first two colors (rose, peach) in MACARON_COLORS.
 GENDER_PALETTE = ["#5B8DB8", "#D4B85A"]  # dusty blue, mustard yellow
-FAMILY_HISTORY_PALETTE = ["#E27D8C", "#9C7FB8"]  # dusty rose, muted lavender
-FAVC_PALETTE = ["#7FB685", "#C97B8C"]  # sage mint (no), mauve (yes)
+YES_NO_PALETTE = ["#E27D8C", "#9C7FB8"]  # dusty rose, muted lavender
 
 @st.cache_data(show_spinner=False)
 def load_data() -> pd.DataFrame:
@@ -317,7 +316,7 @@ def section_charts(subset: pd.DataFrame) -> None:
             color=alt.Color(
                 "family_history_with_overweight:N",
                 title="Family history with overweight",
-                scale=alt.Scale(range=FAMILY_HISTORY_PALETTE),
+                scale=alt.Scale(range=YES_NO_PALETTE),
             ),
             xOffset=alt.XOffset("family_history_with_overweight:N"),
             tooltip=["CALC", "family_history_with_overweight", "Count"],
@@ -385,7 +384,7 @@ def section_charts(subset: pd.DataFrame) -> None:
             color=alt.Color(
                 "FAVC:N",
                 title="High calorie intake (FAVC)",
-                scale=alt.Scale(range=FAVC_PALETTE),
+                scale=alt.Scale(range=YES_NO_PALETTE),
             ),
             xOffset=alt.XOffset("FAVC:N"),
             tooltip=[TARGET, "FAVC", alt.Tooltip("Average FAF:Q", format=".2f")],
