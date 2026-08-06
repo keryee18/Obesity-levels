@@ -337,10 +337,16 @@ def section_charts(subset: pd.DataFrame) -> None:
     weight_order = [level for level in weight_order if level in subset[TARGET].unique()]
     activity_means = subset.groupby(TARGET)["FAF"].mean().reindex(weight_order).reset_index(name="Average FAF")
     activity_chart = alt.Chart(activity_means).mark_bar(
-        cornerRadiusTopLeft=4, cornerRadiusTopRight=4, color=MACARON_COLORS[0]
+        cornerRadiusTopLeft=4, cornerRadiusTopRight=4
     ).encode(
         x=alt.X(f"{TARGET}:N", title=None, sort=weight_order),
         y=alt.Y("Average FAF:Q", title="Average physical activity score (FAF)"),
+        color=alt.Color(
+            f"{TARGET}:N",
+            legend=None,
+            sort=weight_order,
+            scale=alt.Scale(domain=weight_order, range=MACARON_COLORS[: len(weight_order)]),
+        ),
         tooltip=[TARGET, alt.Tooltip("Average FAF:Q", format=".2f")],
     ).properties(height=380)
     st.altair_chart(activity_chart, width="stretch")
