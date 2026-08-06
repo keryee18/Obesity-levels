@@ -39,19 +39,14 @@ MACARON_COLORS = [
 MACARON_GRADIENT = ["#E3F2FD", "#0B3D91"]
 # Dedicated color pairs for binary splits, so Gender/family-history charts
 # don't all default to the first two colors (rose, peach) in MACARON_COLORS.
-GENDER_PALETTE = ["#D4B85A", "#5B8DB8"]  # mustard yellow, dusty blue
+GENDER_PALETTE = ["#5B8DB8", "#D4B85A"]  # dusty blue, mustard yellow
 FAMILY_HISTORY_PALETTE = ["#E27D8C", "#9C7FB8"]  # dusty rose, muted lavender
 
 
 @st.cache_data(show_spinner=False)
-def load_data(uploaded_bytes: bytes | None = None) -> pd.DataFrame:
-    """Load the bundled data, or a user-uploaded CSV with the same schema."""
-    if uploaded_bytes is not None:
-        from io import BytesIO
-
-        data = pd.read_csv(BytesIO(uploaded_bytes))
-    else:
-        data = pd.read_csv(DATA_PATH)
+def load_data() -> pd.DataFrame:
+    """Load the bundled dataset."""
+    data = pd.read_csv(DATA_PATH)
     data.columns = data.columns.str.strip()
     return data
 
@@ -443,9 +438,8 @@ def section_prediction(data: pd.DataFrame) -> None:
 def main() -> None:
     st.title("Obesity Levels Prediction Dashboard")
     st.write("Explore the eating-habit and physical-condition data, compare classifiers, and make an individual prediction.")
-    uploaded = st.sidebar.file_uploader("Use a different obesity CSV (optional)", type="csv")
     try:
-        data = load_data(uploaded.getvalue() if uploaded else None)
+        data = load_data()
     except Exception as error:
         st.error(f"Could not load the CSV: {error}")
         st.stop()
