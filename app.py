@@ -230,6 +230,37 @@ def section_charts(subset: pd.DataFrame) -> None:
     ).properties(height=340)
     st.altair_chart(lifestyle_chart, width="stretch")
 
+    transport_col, scatter_col = st.columns(2)
+    with transport_col:
+        st.subheader("Transportation methods by gender")
+        transport_counts = subset.groupby(["MTRANS", "Gender"]).size().reset_index(name="Count")
+        transport_chart = alt.Chart(transport_counts).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+            x=alt.X("MTRANS:N", title="Transportation mode (MTRANS)", sort="-y"),
+            y=alt.Y("Count:Q", title="Count"),
+            color=alt.Color(
+                "Gender:N",
+                title="Gender",
+                scale=alt.Scale(range=MACARON_COLORS),
+            ),
+            xOffset=alt.XOffset("Gender:N"),
+            tooltip=["MTRANS", "Gender", "Count"],
+        ).properties(height=340)
+        st.altair_chart(transport_chart, width="stretch")
+
+    with scatter_col:
+        st.subheader("Age vs. weight by gender")
+        scatter_chart = alt.Chart(subset).mark_circle(size=60, opacity=0.6).encode(
+            x=alt.X("Age:Q", title="Age"),
+            y=alt.Y("Weight:Q", title="Weight (kilogram)"),
+            color=alt.Color(
+                "Gender:N",
+                title="Gender",
+                scale=alt.Scale(range=MACARON_COLORS),
+            ),
+            tooltip=["Gender", "Age", "Weight", TARGET],
+        ).properties(height=340).interactive()
+        st.altair_chart(scatter_chart, width="stretch")
+
 
 def section_models(data: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
     models, results, y_test, _ = train_models(data)
@@ -336,6 +367,7 @@ def main() -> None:
         section_models(data)
     with prediction:
         section_prediction(data)
+    st.caption("Educational dashboard — predictions are estimates from the supplied dataset, not medical advice.")
 
 
 if __name__ == "__main__":
