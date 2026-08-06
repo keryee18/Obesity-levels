@@ -133,17 +133,17 @@ def section_charts(subset: pd.DataFrame) -> None:
     ).properties(height=340)
     st.altair_chart(chart, width="stretch")
 
-    # left, right = st.columns(2)
-    # with left:
-    #     numeric_choices = ["Age", "Height", "Weight", "FCVC", "NCP", "CH2O", "FAF", "TUE"]
-    #     variable = st.selectbox("Numeric variable distribution", numeric_choices)
-    #     histogram = alt.Chart(subset).mark_bar(opacity=0.75).encode(
-    #         x=alt.X(f"{variable}:Q", bin=alt.Bin(maxbins=24)),
-    #         y=alt.Y("count():Q", title="People"),
-    #         color=alt.Color(f"{TARGET}:N", title="Obesity level"),
-    #         tooltip=[alt.Tooltip("count():Q", title="People")],
-    #     ).properties(height=300)
-    #     st.altair_chart(histogram, width="stretch")
+    left, right = st.columns(2)
+    with left:
+        numeric_choices = ["Age", "Height", "Weight", "FCVC", "NCP", "CH2O", "FAF", "TUE"]
+        variable = st.selectbox("Numeric variable distribution", numeric_choices)
+        histogram = alt.Chart(subset).mark_bar(opacity=0.75).encode(
+            x=alt.X(f"{variable}:Q", bin=alt.Bin(maxbins=24)),
+            y=alt.Y("count():Q", title="People"),
+            color=alt.Color(f"{TARGET}:N", title="Obesity level"),
+            tooltip=[alt.Tooltip("count():Q", title="People")],
+        ).properties(height=300)
+        st.altair_chart(histogram, width="stretch")
     # with right:
     #     scatter = alt.Chart(subset).mark_circle(size=65, opacity=0.65).encode(
     #         x=alt.X("Height:Q", title="Height (m)"),
@@ -152,6 +152,15 @@ def section_charts(subset: pd.DataFrame) -> None:
     #         tooltip=["Gender", "Age", "Height", "Weight", TARGET],
     #     ).interactive().properties(height=300, title="Height vs weight")
     #     st.altair_chart(scatter, width="stretch")
+
+    sns.countplot(data=obesity, x='Gender', hue='CALC', palette='viridis')
+    plt.title('Count of Alcohol Consumption Levels by Gender')
+    plt.xlabel('Gender')
+    plt.ylabel('Count')
+    plt.xticks(rotation=0)
+    plt.legend(title='CALC')
+    plt.tight_layout()
+    plt.show()
 
     st.subheader("Lifestyle factor by obesity level")
     lifestyle = st.selectbox(
