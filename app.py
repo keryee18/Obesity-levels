@@ -37,6 +37,10 @@ MACARON_COLORS = [
 ]
 # Two-tone blue gradient for continuous ("Count"-style) scales, e.g. the confusion matrix.
 MACARON_GRADIENT = ["#E3F2FD", "#0B3D91"]
+# Dedicated color pairs for binary splits, so Gender/family-history charts
+# don't all default to the first two colors (rose, peach) in MACARON_COLORS.
+GENDER_PALETTE = ["#5B8DB8", "#7FB685"]  # dusty blue, sage mint
+FAMILY_HISTORY_PALETTE = ["#D4B85A", "#9C7FB8"]  # mustard yellow, muted lavender
 
 
 @st.cache_data(show_spinner=False)
@@ -240,7 +244,7 @@ def section_charts(subset: pd.DataFrame) -> None:
             color=alt.Color(
                 "Gender:N",
                 title="Gender",
-                scale=alt.Scale(range=MACARON_COLORS),
+                scale=alt.Scale(range=GENDER_PALETTE),
             ),
             xOffset=alt.XOffset("Gender:N"),
             tooltip=["MTRANS", "Gender", "Count"],
@@ -255,7 +259,7 @@ def section_charts(subset: pd.DataFrame) -> None:
             color=alt.Color(
                 "Gender:N",
                 title="Gender",
-                scale=alt.Scale(range=MACARON_COLORS),
+                scale=alt.Scale(range=GENDER_PALETTE),
             ),
             tooltip=["Gender", "Age", "Weight", TARGET],
         ).properties(height=520).interactive()
@@ -271,7 +275,7 @@ def section_charts(subset: pd.DataFrame) -> None:
             color=alt.Color(
                 "Gender:N",
                 title="Gender",
-                scale=alt.Scale(range=MACARON_COLORS),
+                scale=alt.Scale(range=GENDER_PALETTE),
             ),
             xOffset=alt.XOffset("Gender:N"),
             tooltip=[TARGET, "Gender", "Count"],
@@ -283,7 +287,7 @@ def section_charts(subset: pd.DataFrame) -> None:
         facet_chart = alt.Chart(subset).mark_bar(opacity=0.85).encode(
             x=alt.X("Age:Q", bin=alt.Bin(maxbins=15), title="Age"),
             y=alt.Y("count():Q", title="Count"),
-            color=alt.Color("Gender:N", legend=None, scale=alt.Scale(range=MACARON_COLORS)),
+            color=alt.Color("Gender:N", legend=None, scale=alt.Scale(range=GENDER_PALETTE)),
             tooltip=[alt.Tooltip("count():Q", title="Count")],
         ).properties(width=180, height=220).facet(
             row=alt.Row("Gender:N", title=None),
@@ -301,7 +305,7 @@ def section_charts(subset: pd.DataFrame) -> None:
             color=alt.Color(
                 "Gender:N",
                 title="Gender",
-                scale=alt.Scale(range=MACARON_COLORS),
+                scale=alt.Scale(range=GENDER_PALETTE),
             ),
             xOffset=alt.XOffset("Gender:N"),
             tooltip=["CAEC", "Gender", "Count"],
@@ -317,7 +321,7 @@ def section_charts(subset: pd.DataFrame) -> None:
             color=alt.Color(
                 "family_history_with_overweight:N",
                 title="Family history with overweight",
-                scale=alt.Scale(range=MACARON_COLORS),
+                scale=alt.Scale(range=FAMILY_HISTORY_PALETTE),
             ),
             xOffset=alt.XOffset("family_history_with_overweight:N"),
             tooltip=["CALC", "family_history_with_overweight", "Count"],
