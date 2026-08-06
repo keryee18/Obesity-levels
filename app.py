@@ -18,7 +18,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.tree import DecisionTreeClassifier
-
+import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Obesity Levels Predictor", layout="wide")
 
@@ -123,13 +123,15 @@ def section_charts(subset: pd.DataFrame) -> None:
     if subset.empty:
         st.warning("No records match the selected filters.")
         return
+
     st.subheader("Obesity-level distribution")
-    counts = subset[TARGET].value_counts().rename_axis("Obesity level").reset_index(name="Count")
+    counts = subset[TARGET].value_counts()
 
     bar_col, pie_col = st.columns(2)
 
     with bar_col:
-        chart = alt.Chart(counts).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
+        counts_df = counts.rename_axis("Obesity level").reset_index(name="Count")
+        chart = alt.Chart(counts_df).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
             x=alt.X("Obesity level:N", sort="-y", title=None),
             y=alt.Y("Count:Q", title="People"),
             color=alt.Color("Obesity level:N", legend=None),
@@ -138,26 +140,19 @@ def section_charts(subset: pd.DataFrame) -> None:
         st.altair_chart(chart, width="stretch")
 
     with pie_col:
-        total = counts["Count"].sum()
-        counts["Percent"] = counts["Count"] / total
-        pie = alt.Chart(counts).mark_arc(innerRadius=60).encode(
-            theta=alt.Theta("Count:Q", stack=True),
-            color=alt.Color("Obesity level:N", title="Obesity level"),
-            tooltip=[
-                "Obesity level",
-                "Count",
-                alt.Tooltip("Percent:Q", format=".1%"),
-            ],
-        ).properties(height=340, title="Share of records")
-        st.altair_chart(pie, width="stretch")
-        
-    chart = alt.Chart(counts).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
-        x=alt.X("Obesity level:N", sort="-y", title=None),
-        y=alt.Y("Count:Q", title="People"),
-        color=alt.Color("Obesity level:N", legend=None),
-        tooltip=["Obesity level", "Count"],
-    ).properties(height=340)
-    st.altair_chart(chart, width="stretch")
+        fig, ax = plt.subplots(figsize=(6, 6))
+        colors = plt.cm.viridis(np.linspace(0, 1, len(counts)))
+        ax.pie(
+            counts.values,
+            labels=counts.index,
+            autopct="%1.1f%%",
+            startangle=90,
+            colors=colors,
+            textprops={"fontsize": 9},
+        )
+        ax.set_title("Distribution of Obesity Levels (Pie Chart)")
+        ax.axis("equal")
+        st.pyplot(fig)
 
     left, right = st.columns(2)
     with left:
