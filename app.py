@@ -352,20 +352,46 @@ def section_charts(subset: pd.DataFrame) -> None:
     st.altair_chart(activity_chart, width="stretch")
 
     st.subheader("BMI distribution across weight categories by gender")
-    bmi_data = subset.copy()
-    bmi_data["BMI"] = bmi_data["Weight"] / (bmi_data["Height"] ** 2)
-    bmi_chart = alt.Chart(bmi_data).mark_boxplot(size=28, outliers=True).encode(
-        x=alt.X(f"{TARGET}:N", title="Weight category", sort=weight_order),
-        y=alt.Y("BMI:Q", title="Body Mass Index (BMI)"),
-        color=alt.Color(
-            "Gender:N",
-            title="Gender",
-            scale=alt.Scale(range=GENDER_PALETTE),
-        ),
-        xOffset=alt.XOffset("Gender:N"),
-        tooltip=["Gender", TARGET, alt.Tooltip("BMI:Q", format=".1f")],
-    ).properties(height=420)
-    st.altair_chart(bmi_chart, width="stretch")
+    bmi_col, favc_col = st.columns(2)
+    with bmi_col:
+        st.subheader("BMI distribution across weight categories by gender")
+        bmi_data = subset.copy()
+        bmi_data["BMI"] = bmi_data["Weight"] / (bmi_data["Height"] ** 2)
+        bmi_chart = alt.Chart(bmi_data).mark_boxplot(size=28, outliers=True).encode(
+            x=alt.X(f"{TARGET}:N", title="Weight category", sort=weight_order),
+            y=alt.Y("BMI:Q", title="Body Mass Index (BMI)"),
+            color=alt.Color(
+                "Gender:N",
+                title="Gender",
+                scale=alt.Scale(range=GENDER_PALETTE),
+            ),
+            xOffset=alt.XOffset("Gender:N"),
+            tooltip=["Gender", TARGET, alt.Tooltip("BMI:Q", format=".1f")],
+        ).properties(height=420)
+        st.altair_chart(bmi_chart, width="stretch")
+
+    with favc_col:
+        st.subheader("High caloric food habit by weight category")
+        favc_means = (
+            subset.groupby([TARGET, "FAVC"])["FAF"]
+            .mean()
+            .reindex(weight_order, level=0)
+            .reset_index(name="Average FAF")
+        )
+        favc_chart = alt.Chart(favc_means).mark_bar(
+            cornerRadiusTopLeft=3, cornerRadiusTopRight=3
+        ).encode(
+            x=alt.X(f"{TARGET}:N", title="Weight category", sort=weight_order),
+            y=alt.Y("Average FAF:Q", title="Average physical activity score (FAF)"),
+            color=alt.Color(
+                "FAVC:N",
+                title="High calorie intake (FAVC)",
+                scale=alt.Scale(range=FAVC_PALETTE),
+            ),
+            xOffset=alt.XOffset("FAVC:N"),
+            tooltip=[TARGET, "FAVC", alt.Tooltip("Average FAF:Q", format=".2f")],
+        ).properties(height=420)
+        st.altair_chart(favc_chart, width="stretch")
 
 
 def section_models(data: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
