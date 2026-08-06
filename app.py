@@ -136,12 +136,12 @@ def section_charts(subset: pd.DataFrame) -> None:
         st.warning("No records match the selected filters.")
         return
 
-    st.subheader("Obesity-level distribution")
     counts = subset[TARGET].value_counts()
 
     bar_col, pie_col = st.columns(2)
 
     with bar_col:
+        st.subheader("Obesity-level distribution")
         counts_df = counts.rename_axis("Obesity level").reset_index(name="Count")
         chart = alt.Chart(counts_df).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
             x=alt.X("Obesity level:N", sort="-y", title=None),
