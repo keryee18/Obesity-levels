@@ -26,18 +26,18 @@ DATA_PATH = Path(__file__).parent / "data" / "ObesityDataSet_raw_and_data_sinthe
 TARGET = "NObeyesdad"
 RANDOM_STATE = 42
 
-# Shared macaron / pastel palette used across every chart in the dashboard.
+# Shared blue-tone palette used across every chart in the dashboard.
 MACARON_COLORS = [
-    "#003F5C",  # deep navy teal
-    "#0A6E8C",  # ocean blue
-    "#1B98A0",  # teal
-    "#2EC4B6",  # aqua
-    "#5FBFCB",  # seafoam
-    "#7B9EA8",  # slate blue-gray
-    "#0E4D64",  # dark ocean
+    "#0B3D91",  # deep blue
+    "#1565C0",  # strong blue
+    "#1E88E5",  # medium blue
+    "#42A5F5",  # sky blue
+    "#64B5F6",  # light blue
+    "#90CAF9",  # pale blue
+    "#0D47A1",  # navy
 ]
-# Two-tone macaron gradient for continuous ("Count"-style) scales, e.g. the confusion matrix.
-MACARON_GRADIENT = ["#E6F5F7", "#0A6E8C"]
+# Two-tone blue gradient for continuous ("Count"-style) scales, e.g. the confusion matrix.
+MACARON_GRADIENT = ["#E3F2FD", "#0B3D91"]
 
 
 @st.cache_data(show_spinner=False)
