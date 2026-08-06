@@ -156,6 +156,7 @@ def section_charts(subset: pd.DataFrame) -> None:
         st.altair_chart(chart, width="stretch")
 
     with pie_col:
+        st.subheader("Distribution of Obesity Levels (Pie Chart)")
         counts_df = counts.rename_axis("Obesity level").reset_index(name="Count")
         counts_df["Percent"] = counts_df["Count"] / counts_df["Count"].sum()
         counts_df = counts_df.sort_values("Count", ascending=False).reset_index(drop=True)
@@ -171,7 +172,7 @@ def section_charts(subset: pd.DataFrame) -> None:
                 scale=alt.Scale(range=MACARON_COLORS),
             ),
             tooltip=["Obesity level", "Count", alt.Tooltip("Percent:Q", format=".1%")],
-        ).properties(height=340, title="Distribution of Obesity Levels (Pie Chart)")
+        ).properties(height=340)
         pie_labels = pie_base.mark_text(radius=115, size=11, color="white", fontWeight="bold").encode(
             text=alt.Text("Percent:Q", format=".1%"),
         )
@@ -179,8 +180,9 @@ def section_charts(subset: pd.DataFrame) -> None:
 
     left, right = st.columns(2)
     with left:
+        st.subheader("Numeric variable distribution")
         numeric_choices = ["Age", "Height", "Weight", "FCVC", "NCP", "CH2O", "FAF", "TUE"]
-        variable = st.selectbox("Numeric variable distribution", numeric_choices)
+        variable = st.selectbox("Choose a variable", numeric_choices)
         histogram = alt.Chart(subset).mark_bar(opacity=0.85).encode(
             x=alt.X(f"{variable}:Q", bin=alt.Bin(maxbins=24)),
             y=alt.Y("count():Q", title="People"),
