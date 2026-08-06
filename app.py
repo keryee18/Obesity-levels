@@ -336,7 +336,6 @@ def main() -> None:
         section_models(data)
     with prediction:
         section_prediction(data)
-    st.caption("Educational dashboard — predictions are estimates from the supplied dataset, not medical advice.")
 
 
 if __name__ == "__main__":
