@@ -351,7 +351,6 @@ def section_charts(subset: pd.DataFrame) -> None:
     ).properties(height=380)
     st.altair_chart(activity_chart, width="stretch")
 
-    st.subheader("BMI distribution across weight categories by gender")
     bmi_col, favc_col = st.columns(2)
     with bmi_col:
         st.subheader("BMI distribution across weight categories by gender")
