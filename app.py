@@ -158,17 +158,21 @@ def section_charts(subset: pd.DataFrame) -> None:
     with pie_col:
         counts_df = counts.rename_axis("Obesity level").reset_index(name="Count")
         counts_df["Percent"] = counts_df["Count"] / counts_df["Count"].sum()
-        pie_chart = alt.Chart(counts_df).mark_arc(stroke="white", strokeWidth=1).encode(
-            theta=alt.Theta("Count:Q", stack=True),
+        counts_df = counts_df.sort_values("Count", ascending=False).reset_index(drop=True)
+        pie_base = alt.Chart(counts_df).encode(
+            theta=alt.Theta("Count:Q", stack=True, sort=None),
+            order=alt.Order("Count:Q", sort="descending"),
+        )
+        pie_chart = pie_base.mark_arc(stroke="white", strokeWidth=1).encode(
             color=alt.Color(
                 "Obesity level:N",
-                legend=None,
+                sort=counts_df["Obesity level"].tolist(),
+                legend=alt.Legend(title="Obesity level", orient="right"),
                 scale=alt.Scale(range=MACARON_COLORS),
             ),
             tooltip=["Obesity level", "Count", alt.Tooltip("Percent:Q", format=".1%")],
         ).properties(height=340, title="Distribution of Obesity Levels (Pie Chart)")
-        pie_labels = alt.Chart(counts_df).mark_text(radius=115, size=11, color="white", fontWeight="bold").encode(
-            theta=alt.Theta("Count:Q", stack=True),
+        pie_labels = pie_base.mark_text(radius=115, size=11, color="white", fontWeight="bold").encode(
             text=alt.Text("Percent:Q", format=".1%"),
         )
         st.altair_chart(pie_chart + pie_labels, width="stretch")
