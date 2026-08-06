@@ -261,6 +261,36 @@ def section_charts(subset: pd.DataFrame) -> None:
         ).properties(height=520).interactive()
         st.altair_chart(scatter_chart, width="stretch")
 
+    gender_col, facet_col = st.columns(2)
+    with gender_col:
+        st.subheader("Obesity levels by gender")
+        obesity_gender_counts = subset.groupby([TARGET, "Gender"]).size().reset_index(name="Count")
+        obesity_gender_chart = alt.Chart(obesity_gender_counts).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+            x=alt.X(f"{TARGET}:N", title="Obesity level", sort="-y"),
+            y=alt.Y("Count:Q", title="Count"),
+            color=alt.Color(
+                "Gender:N",
+                title="Gender",
+                scale=alt.Scale(range=MACARON_COLORS),
+            ),
+            xOffset=alt.XOffset("Gender:N"),
+            tooltip=[TARGET, "Gender", "Count"],
+        ).properties(height=520)
+        st.altair_chart(obesity_gender_chart, width="stretch")
+
+    with facet_col:
+        st.subheader("Age distribution by gender and smoking status")
+        facet_chart = alt.Chart(subset).mark_bar(opacity=0.85).encode(
+            x=alt.X("Age:Q", bin=alt.Bin(maxbins=15), title="Age"),
+            y=alt.Y("count():Q", title="Count"),
+            color=alt.Color("Gender:N", legend=None, scale=alt.Scale(range=MACARON_COLORS)),
+            tooltip=[alt.Tooltip("count():Q", title="Count")],
+        ).properties(width=180, height=220).facet(
+            row=alt.Row("Gender:N", title=None),
+            column=alt.Column("SMOKE:N", title="Smokes"),
+        )
+        st.altair_chart(facet_chart)
+
 
 def section_models(data: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
     models, results, y_test, _ = train_models(data)
