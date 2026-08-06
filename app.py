@@ -29,13 +29,13 @@ RANDOM_STATE = 42
 
 # Shared blue-tone palette used across every chart in the dashboard.
 MACARON_COLORS = [
-    "#0B3D91",  # deep blue
-    "#1565C0",  # strong blue
-    "#1E88E5",  # medium blue
-    "#42A5F5",  # sky blue
-    "#64B5F6",  # light blue
-    "#90CAF9",  # pale blue
-    "#0D47A1",  # navy
+    "#E27D8C",  # dusty rose
+    "#E8A87C",  # terracotta peach
+    "#D4B85A",  # mustard yellow
+    "#7FB685",  # sage mint
+    "#5B8DB8",  # dusty blue
+    "#9C7FB8",  # muted lavender
+    "#C97B8C",  # mauve
 ]
 # Two-tone blue gradient for continuous ("Count"-style) scales, e.g. the confusion matrix.
 MACARON_GRADIENT = ["#E3F2FD", "#0B3D91"]
@@ -159,20 +159,24 @@ def section_charts(subset: pd.DataFrame) -> None:
 
     with pie_col:
         colors = [MACARON_COLORS[i % len(MACARON_COLORS)] for i in range(len(counts))]
-        fig, ax = plt.subplots(figsize=(4, 4))
+        plt.rcParams["font.family"] = "sans-serif"
+        fig, ax = plt.subplots(figsize=(2.6, 2.6), dpi=150)
         _, outer_labels, inner_labels = ax.pie(
             counts.values,
             labels=counts.index,
             autopct="%1.1f%%",
             startangle=90,
             colors=colors,
-            textprops={"fontsize": 9, "color": "#2a2a2a"},
-            wedgeprops={"edgecolor": "white", "linewidth": 1.5},
+            textprops={"fontsize": 6, "color": "#3a3a3a", "fontweight": "normal"},
+            wedgeprops={"edgecolor": "white", "linewidth": 1},
+            labeldistance=1.08,
+            pctdistance=0.68,
         )
         for label in inner_labels:
             label.set_color("white")
-            label.set_fontweight("bold")
-        ax.set_title("Distribution of Obesity Levels (Pie Chart)")
+            label.set_fontsize(6)
+            label.set_fontweight("normal")
+        ax.set_title("Distribution of Obesity Levels (Pie Chart)", fontsize=8, fontweight="bold", color="#2a2a2a", pad=8)
         st.pyplot(fig, use_container_width=False)
 
     left, right = st.columns(2)
@@ -217,7 +221,8 @@ def section_charts(subset: pd.DataFrame) -> None:
     st.altair_chart(lifestyle_chart, width="stretch")
 
     st.subheader("Alcohol consumption levels by gender")
-    fig, ax = plt.subplots(figsize=(5, 3.4))
+    plt.rcParams["font.family"] = "sans-serif"
+    fig, ax = plt.subplots(figsize=(3.6, 2.6), dpi=150)
     calc_order = [level for level in ["no", "Sometimes", "Frequently", "Always"] if level in subset["CALC"].unique()]
     sns.countplot(
         data=subset,
@@ -227,11 +232,13 @@ def section_charts(subset: pd.DataFrame) -> None:
         palette=MACARON_COLORS[: len(calc_order)],
         ax=ax,
     )
-    ax.set_title("Count of Alcohol Consumption Levels by Gender")
-    ax.set_xlabel("Gender")
-    ax.set_ylabel("Count")
-    ax.tick_params(axis="x", rotation=0)
-    ax.legend(title="CALC")
+    ax.set_title("Count of Alcohol Consumption Levels by Gender", fontsize=8, fontweight="bold", color="#2a2a2a", pad=8)
+    ax.set_xlabel("Gender", fontsize=7, color="#3a3a3a")
+    ax.set_ylabel("Count", fontsize=7, color="#3a3a3a")
+    ax.tick_params(axis="both", labelsize=6, rotation=0)
+    ax.legend(title="CALC", fontsize=6, title_fontsize=6.5)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     fig.tight_layout()
     st.pyplot(fig, use_container_width=False)
 
