@@ -324,6 +324,27 @@ def section_charts(subset: pd.DataFrame) -> None:
         ).properties(height=420)
         st.altair_chart(calc_family_chart, width="stretch")
 
+    st.subheader("Physical activity levels across weight categories")
+    weight_order = [
+        "Insufficient_Weight",
+        "Normal_Weight",
+        "Overweight_Level_I",
+        "Overweight_Level_II",
+        "Obesity_Type_I",
+        "Obesity_Type_II",
+        "Obesity_Type_III",
+    ]
+    weight_order = [level for level in weight_order if level in subset[TARGET].unique()]
+    activity_means = subset.groupby(TARGET)["FAF"].mean().reindex(weight_order).reset_index(name="Average FAF")
+    activity_chart = alt.Chart(activity_means).mark_bar(
+        cornerRadiusTopLeft=4, cornerRadiusTopRight=4, color=MACARON_COLORS[0]
+    ).encode(
+        x=alt.X(f"{TARGET}:N", title=None, sort=weight_order),
+        y=alt.Y("Average FAF:Q", title="Average physical activity score (FAF)"),
+        tooltip=[TARGET, alt.Tooltip("Average FAF:Q", format=".2f")],
+    ).properties(height=380)
+    st.altair_chart(activity_chart, width="stretch")
+
 
 def section_models(data: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
     models, results, y_test, _ = train_models(data)
