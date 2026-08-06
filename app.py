@@ -291,6 +291,39 @@ def section_charts(subset: pd.DataFrame) -> None:
         )
         st.altair_chart(facet_chart)
 
+    caec_col, calc_col = st.columns(2)
+    with caec_col:
+        st.subheader("Eating between meals (CAEC) by gender")
+        caec_counts = subset.groupby(["CAEC", "Gender"]).size().reset_index(name="Count")
+        caec_chart = alt.Chart(caec_counts).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+            x=alt.X("CAEC:N", title="Do you eat any food between meals", sort="-y"),
+            y=alt.Y("Count:Q", title="Count"),
+            color=alt.Color(
+                "Gender:N",
+                title="Gender",
+                scale=alt.Scale(range=MACARON_COLORS),
+            ),
+            xOffset=alt.XOffset("Gender:N"),
+            tooltip=["CAEC", "Gender", "Count"],
+        ).properties(height=420)
+        st.altair_chart(caec_chart, width="stretch")
+
+    with calc_col:
+        st.subheader("Alcohol consumption (CALC) by family history")
+        calc_family_counts = subset.groupby(["CALC", "family_history_with_overweight"]).size().reset_index(name="Count")
+        calc_family_chart = alt.Chart(calc_family_counts).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+            x=alt.X("CALC:N", title="How often do you drink alcohol", sort="-y"),
+            y=alt.Y("Count:Q", title="Count"),
+            color=alt.Color(
+                "family_history_with_overweight:N",
+                title="Family history with overweight",
+                scale=alt.Scale(range=MACARON_COLORS),
+            ),
+            xOffset=alt.XOffset("family_history_with_overweight:N"),
+            tooltip=["CALC", "family_history_with_overweight", "Count"],
+        ).properties(height=420)
+        st.altair_chart(calc_family_chart, width="stretch")
+
 
 def section_models(data: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
     models, results, y_test, _ = train_models(data)
