@@ -21,6 +21,77 @@ from sklearn.tree import DecisionTreeClassifier
 
 st.set_page_config(page_title="Obesity Levels Predictor", layout="wide")
 
+st.markdown(
+    """
+    <style>
+    /* --- Streamlit Global Theme Variables Overrides --- */
+    [data-testid="stAppViewContainer"],
+    [data-testid="stHeader"],
+    [data-testid="stSidebar"],
+    .stApp {
+        --primary-color: #000000 !important;
+        --text-color: #000000 !important;
+    }
+
+    /* --- Active Tab & Underline Styling --- */
+    /* Tab highlight bar / active underline */
+    [data-testid="stTabs"] [data-baseweb="tab-highlight"],
+    [data-testid="stTabs"] [data-testid="stMarker"],
+    [data-baseweb="tab-highlight"] {
+        background-color: #000000 !important;
+    }
+
+    /* Active Tab Text & Label */
+    [data-testid="stTabs"] button[aria-selected="true"],
+    [data-testid="stTabs"] button[aria-selected="true"] *,
+    [data-baseweb="tab"][aria-selected="true"] span,
+    [data-baseweb="tab"][aria-selected="true"] p {
+        color: #000000 !important;
+        font-weight: 800 !important;
+    }
+
+    /* Inactive Tab Hover Text */
+    [data-testid="stTabs"] button:hover {
+        color: #000000 !important;
+    }
+
+    /* --- Slider Track, Thumbs & Age Range Values --- */
+    /* Active slider track line */
+    [data-testid="stSlider"] [data-baseweb="slider"] div[style*="background"],
+    [data-testid="stSlider"] div[role="slider"] ~ div,
+    [data-testid="stSlider"] div[data-baseweb="slider"] > div > div {
+        background-color: #000000 !important;
+        background: #000000 !important;
+    }
+
+    /* Slider handles / thumbs */
+    [data-testid="stSlider"] [role="slider"],
+    [data-testid="stSlider"] div[role="slider"] {
+        background-color: #000000 !important;
+        border-color: #000000 !important;
+        box-shadow: none !important;
+    }
+
+    /* Slider min/max numerical labels & tooltips */
+    [data-testid="stSlider"] [data-testid="stTickBarMin"],
+    [data-testid="stSlider"] [data-testid="stTickBarMax"],
+    [data-testid="stSlider"] [data-testid="stThumbValue"],
+    [data-testid="stSlider"] div[data-testid="stMarkdownContainer"] p,
+    [data-testid="stSlider"] span {
+        color: #000000 !important;
+    }
+
+    /* --- Primary Buttons & Form Submit Buttons --- */
+    button[kind="primary"] {
+        background-color: #000000 !important;
+        border-color: #000000 !important;
+        color: #ffffff !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 DATA_PATH = Path(__file__).parent / "data" / "ObesityDataSet_raw_and_data_sinthetic.csv"
 TARGET = "NObeyesdad"
 RANDOM_STATE = 42
@@ -118,7 +189,6 @@ def section_overview(data: pd.DataFrame, subset: pd.DataFrame) -> None:
     b.metric("Total records", f"{len(data):,}")
     c.metric("Input features", data.shape[1] - 1)
     d.metric("Obesity classes", data[TARGET].nunique())
-    st.caption("Filters in the sidebar apply to this dashboard's data and chart tabs.")
     st.subheader("Filtered dataset")
     st.dataframe(subset, width="stretch", hide_index=True)
     st.download_button(
@@ -477,7 +547,6 @@ def section_prediction(data: pd.DataFrame) -> None:
 
 def main() -> None:
     st.title("Obesity Levels Prediction Dashboard")
-    st.write("Explore the eating-habit and physical-condition data, compare classifiers, and make an individual prediction.")
     try:
         data = load_data()
     except Exception as error:
