@@ -117,7 +117,40 @@ def sidebar_tuning() -> tuple[str, dict]:
     return source_option, params
 
 
-@st.cache_resource(show_spinner="Training and evaluating models with updated hyperparameters…")
+def model_comparison_tuning() -> dict:
+    """Render all model hyperparameters in the comparison sidebar."""
+    st.sidebar.header("Hyperparameter Tuning")
+    params = DEFAULT_PARAMS.copy()
+
+    st.sidebar.markdown("**Random Forest**")
+    params["rf_n_estimators"] = st.sidebar.slider("RF: Estimators", 50, 500, 250, 50)
+    params["rf_max_depth"] = st.sidebar.slider("RF: Max Depth", 2, 30, 12, 1)
+
+    st.sidebar.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
+    st.sidebar.markdown("**Decision Tree**")
+    params["dt_max_depth"] = st.sidebar.slider("DT: Max Depth", 1, 30, 12, 1)
+    params["dt_min_samples_split"] = st.sidebar.slider(
+        "DT: Min Samples Split", 2, 20, 2, 1
+    )
+
+    st.sidebar.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
+    st.sidebar.markdown("**Logistic Regression**")
+    params["lr_c"] = st.sidebar.select_slider(
+        "LR: Inverse Regularization (C)",
+        options=[0.01, 0.1, 1.0, 10.0, 100.0],
+        value=1.0,
+    )
+    params["lr_max_iter"] = st.sidebar.slider("LR: Max Iterations", 500, 5000, 3000, 500)
+
+    st.sidebar.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
+    st.sidebar.markdown("**K-Nearest Neighbors**")
+    params["knn_neighbors"] = st.sidebar.slider(
+        "KNN: Number of Neighbors (k)", 1, 25, 7, 2
+    )
+    return params
+
+
+@st.cache_data(show_spinner="Training and evaluating models with updated hyperparameters…")
 def train_models(data: pd.DataFrame, params: dict):
     features = data.drop(columns=TARGET)
     target = data[TARGET]
@@ -571,51 +604,6 @@ def section_models(data: pd.DataFrame, params: dict) -> tuple[dict, pd.DataFrame
     )
     st.altair_chart(chart, width="stretch")
 
-
-def section_models(data: pd.DataFrame, params: dict) -> tuple[dict, pd.DataFrame]:
-    models, results, y_test, _ = train_models(data, params)
-
-    ranking = results[
-        ["Model", "Accuracy", "F1-score", "Precision", "Recall"]
-    ].sort_values("F1-score", ascending=False)
-
-    st.subheader("Model comparison")
-    st.caption(
-        "All models use the same stratified 80/20 split (random state 42)."
-        " Categorical inputs are one-hot encoded; numeric inputs are standardized."
-    )
-    st.dataframe(
-        ranking.style.format(
-            {
-                "Accuracy": "{:.2%}",
-                "F1-score": "{:.2%}",
-                "Precision": "{:.2%}",
-                "Recall": "{:.2%}",
-            }
-        ),
-        width="stretch",
-        hide_index=True,
-    )
-
-    performance = ranking.melt("Model", var_name="Metric", value_name="Score")
-    chart = (
-        alt.Chart(performance)
-        .mark_bar()
-        .encode(
-            x=alt.X("Model:N", sort="-y"),
-            y=alt.Y(
-                "Score:Q",
-                axis=alt.Axis(format="%"),
-                scale=alt.Scale(domain=[0, 1]),
-            ),
-            color=alt.Color("Metric:N", scale=alt.Scale(range=MACARON_COLORS)),
-            xOffset="Metric:N",
-            tooltip=["Model", "Metric", alt.Tooltip("Score:Q", format=".2%")],
-        )
-        .properties(height=340)
-    )
-    st.altair_chart(chart, width="stretch")
-
     chosen = st.selectbox("Inspect model", ranking["Model"].tolist())
     predicted = results.loc[results["Model"] == chosen, "Predictions"].iloc[0]
 
@@ -741,7 +729,7 @@ def section_prediction(data: pd.DataFrame, params: dict) -> None:
 
 
 def main() -> None:
-    st.title("Obesity Levels Prediction Dashboard")
+    st.title("Obesity Levels Prediction")
     try:
         data = load_data()
     except Exception as error:
@@ -844,8 +832,8 @@ def main() -> None:
         label_visibility="collapsed",
     )
 
-    # Completely hide sidebar via CSS if active tab is NOT "Charts"
-    if selected_tab != "Charts":
+    # Show the sidebar only for the chart and model-comparison views.
+    if selected_tab not in ("Charts", "Model comparison"):
         st.markdown(
             """
             <style>
@@ -868,7 +856,8 @@ def main() -> None:
         section_charts(subset, models, source_option)
 
     elif selected_tab == "Model comparison":
-        section_models(data, DEFAULT_PARAMS)
+        params = model_comparison_tuning()
+        section_models(data, params)
 
     elif selected_tab == "Make a prediction":
         section_prediction(data, DEFAULT_PARAMS)
