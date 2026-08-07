@@ -203,8 +203,8 @@ def render_data_filters(data: pd.DataFrame) -> pd.DataFrame:
     selected_genders = st.sidebar.multiselect(
         "Gender", sorted(data["Gender"].unique()), default=sorted(data["Gender"].unique())
     )
-    age_min, age_max = float(data["Age"].min()), float(data["Age"].max())
-    age_range = st.sidebar.slider("Age range", age_min, age_max, (age_min, age_max), 0.5)
+    age_min, age_max = int(data["Age"].min()), int(data["Age"].max())
+    age_range = st.sidebar.slider("Age range", age_min, age_max, (age_min, age_max), 1)
     
     return data[
         data[TARGET].isin(selected_classes)
