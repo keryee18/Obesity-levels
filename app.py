@@ -186,9 +186,9 @@ def train_models(data: pd.DataFrame, params: dict):
             {
                 "Model": name,
                 "Accuracy": accuracy_score(y_test, predictions),
-                "Precision": precision_score(y_test, predictions, average="weighted"),
-                "Recall": recall_score(y_test, predictions, average="weighted"),
-                "F1-score": f1_score(y_test, predictions, average="weighted"),
+                "Precision": precision_score(y_test, predictions, average="macro"),
+                "Recall": recall_score(y_test, predictions, average="macro"),
+                "F1-score": f1_score(y_test, predictions, average="macro"),
                 "Predictions": predictions,
             }
         )
