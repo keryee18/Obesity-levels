@@ -23,7 +23,7 @@ from sklearn.tree import DecisionTreeClassifier
 
 st.set_page_config(page_title="Obesity Levels Predictor", layout="wide")
 
-DATA_PATH = Path(__file__).parent / "data" / "complete_processed_obesity_dataset_unified.csv"
+DATA_PATH = Path(__file__).parent / "data" / "ObesityDataSet_Processed_Unified_SeparatedSteps.csv"
 TARGET = "NObeyesdad"
 RANDOM_STATE = 42
 
