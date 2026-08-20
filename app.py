@@ -4,6 +4,8 @@ import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
+from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline as ImbPipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -18,13 +20,16 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
 st.set_page_config(page_title="Obesity Levels Predictor", layout="wide")
 
-DATA_PATH = Path(__file__).parent / "data" / "ObesityDataSet_Processed_Unified_SeparatedSteps.csv"
+DATA_PATH = Path(__file__).parent / "data" / "ObesityDataSet_Cleaned_Outliers_Capped.csv"
+RAW_DATA_PATH = Path(__file__).parent / "data" / "ObesityDataSet_raw_and_data_sinthetic.csv"
+TUNING_RESULTS_PATH = Path(__file__).parent / "data" / "best_hyperparameters.csv"
 TARGET = "NObeyesdad"
+MODEL_EXCLUDED_COLUMNS = ["BMI"]
 RANDOM_STATE = 42
 
 # Explicitly defining custom orders for Gender and Yes/No variables
@@ -33,12 +38,33 @@ YES_NO_ORDER = ["yes", "no"]
 
 DEFAULT_PARAMS = {
     "rf_n_estimators": 250,
-    "rf_max_depth": 12,
+    "rf_max_depth": 16,
+    "rf_min_samples_split": 2,
+    "rf_min_samples_leaf": 1,
+    "rf_max_features": "sqrt",
+    "rf_max_leaf_nodes": None,
     "dt_max_depth": 12,
     "dt_min_samples_split": 2,
-    "lr_c": 1.0,
-    "lr_max_iter": 3000,
-    "knn_neighbors": 7,
+    "dt_min_samples_leaf": 1,
+    "dt_criterion": "entropy",
+    "dt_max_leaf_nodes": 100,
+    "lr_c": 100.0,
+    "lr_max_iter": 1000,
+    "lr_solver": "lbfgs",
+    "lr_class_weight": None,
+    "lr_tol": 0.0001,
+    "knn_neighbors": 3,
+    "knn_weights": "uniform",
+    "knn_p": 1,
+    "knn_leaf_size": 20,
+    "smote_enabled": True,
+    "smote_k_neighbors": 3,
+    "smote_k_neighbors_by_model": {
+        "Random Forest": 5,
+        "Decision Tree": 3,
+        "Logistic Regression": 3,
+        "K-Nearest Neighbors": 5,
+    },
 }
 
 MACARON_COLORS = [
@@ -62,78 +88,81 @@ def load_data() -> pd.DataFrame:
     return data
 
 
-def make_dashboard_data(data: pd.DataFrame) -> pd.DataFrame:
-    """Decode available categorical encodings while preserving numeric values."""
-    dashboard_data = data.copy()
-    if "Gender_Male" in dashboard_data:
-        dashboard_data["Gender"] = np.where(dashboard_data["Gender_Male"], "Male", "Female")
-    elif "Gender" in dashboard_data and pd.api.types.is_numeric_dtype(dashboard_data["Gender"]):
-        dashboard_data["Gender"] = dashboard_data["Gender"].map({0: "Female", 1: "Male"})
+@st.cache_data(show_spinner=False)
+def load_raw_data() -> pd.DataFrame:
+    data = pd.read_csv(RAW_DATA_PATH)
+    data.columns = data.columns.str.strip()
+    return data
 
-    binary_columns = {
-        "family_history_with_overweight": "family_history_with_overweight_yes",
-        "FAVC": "FAVC_yes",
-        "SMOKE": "SMOKE_yes",
-        "SCC": "SCC_yes",
-    }
-    for column, dummy_column in binary_columns.items():
-        if dummy_column in dashboard_data:
-            dashboard_data[column] = np.where(dashboard_data[dummy_column], "yes", "no")
-        elif column in dashboard_data and pd.api.types.is_numeric_dtype(dashboard_data[column]):
-            dashboard_data[column] = dashboard_data[column].map({0: "no", 1: "yes"})
 
-    for prefix in ("CAEC", "CALC"):
-        dummy_columns = [f"{prefix}_{label}" for label in ("Frequently", "Sometimes", "no")]
-        if all(column in dashboard_data for column in dummy_columns):
-            dashboard_data[prefix] = "Always"
-            for label, column in zip(("Frequently", "Sometimes", "no"), dummy_columns):
-                dashboard_data.loc[dashboard_data[column], prefix] = label
-        elif prefix in dashboard_data and pd.api.types.is_numeric_dtype(dashboard_data[prefix]):
-            dashboard_data[prefix] = dashboard_data[prefix].map(
-                {0: "no", 1: "Sometimes", 2: "Frequently", 3: "Always"}
-            )
+@st.cache_data(show_spinner=False)
+def load_tuning_results() -> pd.DataFrame:
+    return pd.read_csv(TUNING_RESULTS_PATH)
 
-    transport_labels = {
-        "MTRANS_Bike": "Bike",
-        "MTRANS_Motorbike": "Motorbike",
-        "MTRANS_Public_Transportation": "Public_Transportation",
-        "MTRANS_Walking": "Walking",
-    }
-    if any(column in dashboard_data for column in transport_labels):
-        dashboard_data["MTRANS"] = "Automobile"
-        for column, label in transport_labels.items():
-            if column in dashboard_data:
-                dashboard_data.loc[dashboard_data[column].eq(1), "MTRANS"] = label
 
-    encoded_columns = [
-        "Gender_Male",
-        "family_history_with_overweight_yes",
-        "FAVC_yes",
-        "CAEC_Frequently",
-        "CAEC_Sometimes",
-        "CAEC_no",
-        "SMOKE_yes",
-        "SCC_yes",
-        "CALC_Frequently",
-        "CALC_Sometimes",
-        "CALC_no",
-        "MTRANS_Bike",
-        "MTRANS_Motorbike",
-        "MTRANS_Public_Transportation",
-        "MTRANS_Walking",
-    ]
-    return dashboard_data.drop(columns=encoded_columns, errors="ignore")
+def get_model_features(data: pd.DataFrame) -> pd.DataFrame:
+    """Return input features used for model training and prediction."""
+    return data.drop(columns=[TARGET, *MODEL_EXCLUDED_COLUMNS], errors="ignore")
 
 
 def make_preprocessor(features: pd.DataFrame) -> ColumnTransformer:
-    numeric = features.select_dtypes(include=np.number).columns.tolist()
-    categorical = features.select_dtypes(exclude=np.number).columns.tolist()
+    # Binary categories are represented as 0/1 for training.
+    binary_categories = {
+        "Gender": ["Female", "Male"],
+        "family_history_with_overweight": ["no", "yes"],
+        "FAVC": ["no", "yes"],
+        "SMOKE": ["no", "yes"],
+        "SCC": ["no", "yes"],
+    }
+    binary_features = [
+        column for column in binary_categories if column in features.columns
+    ]
+
+    # Multi-class lifestyle categories are one-hot encoded.
+    one_hot_features = [
+        column for column in ["CAEC", "CALC", "MTRANS"] if column in features.columns
+    ]
+
+    numeric = [
+        column
+        for column in features.select_dtypes(include=np.number).columns
+        if column not in binary_features and column not in one_hot_features
+    ]
+
     return ColumnTransformer(
         [
             ("numeric", StandardScaler(), numeric),
-            ("categorical", OneHotEncoder(handle_unknown="ignore"), categorical),
+            (
+                "binary",
+                OrdinalEncoder(
+                    categories=[binary_categories[column] for column in binary_features],
+                    handle_unknown="use_encoded_value",
+                    unknown_value=-1,
+                ),
+                binary_features,
+            ),
+            ("one_hot", OneHotEncoder(handle_unknown="ignore"), one_hot_features),
         ]
     )
+
+
+@st.cache_data(show_spinner=False)
+def make_transformed_explorer_data(data: pd.DataFrame) -> pd.DataFrame:
+    """Return the feature table after the same transformations used for training."""
+    features = get_model_features(data)
+    preprocessor = make_preprocessor(features)
+    transformed_features = preprocessor.fit_transform(features)
+    if hasattr(transformed_features, "toarray"):
+        transformed_features = transformed_features.toarray()
+
+    transformed_data = pd.DataFrame(
+        transformed_features,
+        columns=preprocessor.get_feature_names_out(),
+        index=data.index,
+    )
+    target_one_hot = pd.get_dummies(data[TARGET], prefix=TARGET, dtype=int)
+    transformed_data = pd.concat([transformed_data, target_one_hot], axis=1)
+    return transformed_data
 
 
 def sidebar_tuning() -> tuple[str, dict]:
@@ -152,29 +181,50 @@ def sidebar_tuning() -> tuple[str, dict]:
     )
 
     params = DEFAULT_PARAMS.copy()
+    # Charts allow a single SMOTE value to be adjusted for the chosen model.
+    params["smote_k_neighbors_by_model"] = {}
 
     if source_option != "Ground Truth (Actual Labels)":
         st.sidebar.markdown("---")
         st.sidebar.header("Hyperparameter Tuning")
+        params["smote_enabled"] = st.sidebar.toggle("Apply SMOTE to training data", value=True)
+        if params["smote_enabled"]:
+            params["smote_k_neighbors"] = st.sidebar.slider("SMOTE: Nearest Neighbors", 1, 15, 5)
 
         if source_option == "Predicted: Random Forest":
             st.sidebar.markdown("**Random Forest**")
             params["rf_n_estimators"] = st.sidebar.slider("RF: Estimators", 50, 500, 250, 50)
             params["rf_max_depth"] = st.sidebar.slider("RF: Max Depth", 2, 30, 12, 1)
+            params["rf_min_samples_split"] = st.sidebar.slider("RF: Min Samples Split", 2, 20, 2)
+            params["rf_min_samples_leaf"] = st.sidebar.slider("RF: Min Samples Leaf", 1, 20, 1)
+            params["rf_max_features"] = st.sidebar.selectbox("RF: Features per Split", ["sqrt", "log2"])
+            rf_leaf_nodes = st.sidebar.selectbox("RF: Maximum Leaf Nodes", ["Unlimited", 25, 50, 100, 200])
+            params["rf_max_leaf_nodes"] = None if rf_leaf_nodes == "Unlimited" else rf_leaf_nodes
 
         elif source_option == "Predicted: Decision Tree":
             st.sidebar.markdown("**Decision Tree**")
             params["dt_max_depth"] = st.sidebar.slider("DT: Max Depth", 1, 30, 12, 1)
             params["dt_min_samples_split"] = st.sidebar.slider("DT: Min Samples Split", 2, 20, 2, 1)
+            params["dt_min_samples_leaf"] = st.sidebar.slider("DT: Min Samples Leaf", 1, 20, 1)
+            params["dt_criterion"] = st.sidebar.selectbox("DT: Split Criterion", ["gini", "entropy", "log_loss"])
+            dt_leaf_nodes = st.sidebar.selectbox("DT: Maximum Leaf Nodes", ["Unlimited", 10, 25, 50, 100])
+            params["dt_max_leaf_nodes"] = None if dt_leaf_nodes == "Unlimited" else dt_leaf_nodes
 
         elif source_option == "Predicted: Logistic Regression":
             st.sidebar.markdown("**Logistic Regression**")
             params["lr_c"] = st.sidebar.select_slider("LR: Inverse Regularization (C)", options=[0.01, 0.1, 1.0, 10.0, 100.0], value=1.0)
             params["lr_max_iter"] = st.sidebar.slider("LR: Max Iterations", 500, 5000, 3000, 500)
+            params["lr_solver"] = st.sidebar.selectbox("LR: Solver", ["lbfgs", "newton-cg", "saga"])
+            lr_class_weight = st.sidebar.selectbox("LR: Class Weight", ["None", "balanced"])
+            params["lr_class_weight"] = None if lr_class_weight == "None" else lr_class_weight
+            params["lr_tol"] = st.sidebar.select_slider("LR: Convergence Tolerance", [0.00001, 0.0001, 0.001, 0.01], value=0.0001)
 
         elif source_option == "Predicted: K-Nearest Neighbors":
             st.sidebar.markdown("**K-Nearest Neighbors**")
             params["knn_neighbors"] = st.sidebar.slider("KNN: Number of Neighbors (k)", 1, 25, 7, 2)
+            params["knn_weights"] = st.sidebar.selectbox("KNN: Neighbor Weighting", ["uniform", "distance"])
+            params["knn_p"] = st.sidebar.selectbox("KNN: Distance Metric", [2, 1], format_func=lambda value: "Euclidean" if value == 2 else "Manhattan")
+            params["knn_leaf_size"] = st.sidebar.slider("KNN: Leaf Size", 10, 60, 30, 5)
 
     st.sidebar.markdown("---")
     return source_option, params
@@ -184,10 +234,18 @@ def model_comparison_tuning() -> dict:
     """Render all model hyperparameters in the comparison sidebar."""
     st.sidebar.header("Hyperparameter Tuning")
     params = DEFAULT_PARAMS.copy()
+    params["smote_enabled"] = st.sidebar.toggle("Apply SMOTE to training data", value=True)
+    if params["smote_enabled"]:
+        params["smote_k_neighbors"] = st.sidebar.slider("SMOTE: Nearest Neighbors", 1, 15, 5)
 
     st.sidebar.markdown("**Random Forest**")
     params["rf_n_estimators"] = st.sidebar.slider("RF: Estimators", 50, 500, 250, 50)
     params["rf_max_depth"] = st.sidebar.slider("RF: Max Depth", 2, 30, 12, 1)
+    params["rf_min_samples_split"] = st.sidebar.slider("RF: Min Samples Split", 2, 20, 2)
+    params["rf_min_samples_leaf"] = st.sidebar.slider("RF: Min Samples Leaf", 1, 20, 1)
+    params["rf_max_features"] = st.sidebar.selectbox("RF: Features per Split", ["sqrt", "log2"])
+    rf_leaf_nodes = st.sidebar.selectbox("RF: Maximum Leaf Nodes", ["Unlimited", 25, 50, 100, 200])
+    params["rf_max_leaf_nodes"] = None if rf_leaf_nodes == "Unlimited" else rf_leaf_nodes
 
     st.sidebar.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
     st.sidebar.markdown("**Decision Tree**")
@@ -195,6 +253,10 @@ def model_comparison_tuning() -> dict:
     params["dt_min_samples_split"] = st.sidebar.slider(
         "DT: Min Samples Split", 2, 20, 2, 1
     )
+    params["dt_min_samples_leaf"] = st.sidebar.slider("DT: Min Samples Leaf", 1, 20, 1)
+    params["dt_criterion"] = st.sidebar.selectbox("DT: Split Criterion", ["gini", "entropy", "log_loss"])
+    dt_leaf_nodes = st.sidebar.selectbox("DT: Maximum Leaf Nodes", ["Unlimited", 10, 25, 50, 100])
+    params["dt_max_leaf_nodes"] = None if dt_leaf_nodes == "Unlimited" else dt_leaf_nodes
 
     st.sidebar.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
     st.sidebar.markdown("**Logistic Regression**")
@@ -204,18 +266,25 @@ def model_comparison_tuning() -> dict:
         value=1.0,
     )
     params["lr_max_iter"] = st.sidebar.slider("LR: Max Iterations", 500, 5000, 3000, 500)
+    params["lr_solver"] = st.sidebar.selectbox("LR: Solver", ["lbfgs", "newton-cg", "saga"])
+    lr_class_weight = st.sidebar.selectbox("LR: Class Weight", ["None", "balanced"])
+    params["lr_class_weight"] = None if lr_class_weight == "None" else lr_class_weight
+    params["lr_tol"] = st.sidebar.select_slider("LR: Convergence Tolerance", [0.00001, 0.0001, 0.001, 0.01], value=0.0001)
 
     st.sidebar.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
     st.sidebar.markdown("**K-Nearest Neighbors**")
     params["knn_neighbors"] = st.sidebar.slider(
         "KNN: Number of Neighbors (k)", 1, 25, 7, 2
     )
+    params["knn_weights"] = st.sidebar.selectbox("KNN: Neighbor Weighting", ["uniform", "distance"])
+    params["knn_p"] = st.sidebar.selectbox("KNN: Distance Metric", [2, 1], format_func=lambda value: "Euclidean" if value == 2 else "Manhattan")
+    params["knn_leaf_size"] = st.sidebar.slider("KNN: Leaf Size", 10, 60, 30, 5)
     return params
 
 
 @st.cache_data(show_spinner="Training and evaluating models with updated hyperparameters…")
 def train_models(data: pd.DataFrame, params: dict):
-    features = data.drop(columns=TARGET)
+    features = get_model_features(data)
     target = data[TARGET]
     x_train, x_test, y_train, y_test = train_test_split(
         features, target, test_size=0.20, random_state=RANDOM_STATE, stratify=target
@@ -224,24 +293,54 @@ def train_models(data: pd.DataFrame, params: dict):
         "Random Forest": RandomForestClassifier(
             n_estimators=params["rf_n_estimators"],
             max_depth=params["rf_max_depth"],
+            min_samples_split=params["rf_min_samples_split"],
+            min_samples_leaf=params["rf_min_samples_leaf"],
+            max_features=params["rf_max_features"],
+            max_leaf_nodes=params["rf_max_leaf_nodes"],
             random_state=RANDOM_STATE,
             n_jobs=-1,
         ),
         "Decision Tree": DecisionTreeClassifier(
             max_depth=params["dt_max_depth"],
             min_samples_split=params["dt_min_samples_split"],
+            min_samples_leaf=params["dt_min_samples_leaf"],
+            criterion=params["dt_criterion"],
+            max_leaf_nodes=params["dt_max_leaf_nodes"],
             random_state=RANDOM_STATE,
         ),
         "Logistic Regression": LogisticRegression(
-            C=params["lr_c"], max_iter=params["lr_max_iter"], random_state=RANDOM_STATE
+            C=params["lr_c"],
+            max_iter=params["lr_max_iter"],
+            solver=params["lr_solver"],
+            class_weight=params["lr_class_weight"],
+            tol=params["lr_tol"],
+            random_state=RANDOM_STATE,
         ),
-        "K-Nearest Neighbors": KNeighborsClassifier(n_neighbors=params["knn_neighbors"]),
+        "K-Nearest Neighbors": KNeighborsClassifier(
+            n_neighbors=params["knn_neighbors"],
+            weights=params["knn_weights"],
+            p=params["knn_p"],
+            leaf_size=params["knn_leaf_size"],
+        ),
     }
     fitted, summaries = {}, []
     for name, classifier in models.items():
-        pipeline = Pipeline(
-            [("preprocess", make_preprocessor(features)), ("model", classifier)]
-        )
+        steps = [("preprocess", make_preprocessor(features))]
+        if params["smote_enabled"]:
+            # SMOTE is fitted only on x_train/y_train inside this pipeline.
+            steps.append(
+                (
+                    "smote",
+                    SMOTE(
+                        random_state=RANDOM_STATE,
+                        k_neighbors=params.get("smote_k_neighbors_by_model", {}).get(
+                            name, params["smote_k_neighbors"]
+                        ),
+                    ),
+                )
+            )
+        steps.append(("model", classifier))
+        pipeline = ImbPipeline(steps)
         pipeline.fit(x_train, y_train)
         predictions = pipeline.predict(x_test)
         fitted[name] = pipeline
@@ -276,12 +375,21 @@ def render_data_filters(data: pd.DataFrame) -> pd.DataFrame:
     ].copy()
 
 
-def section_overview(data: pd.DataFrame) -> None:
+def section_overview(data: pd.DataFrame, title: str) -> None:
+    st.subheader(title)
+    target_one_hot_columns = [
+        column for column in data.columns if column.startswith(f"{TARGET}_")
+    ]
+    obesity_class_count = (
+        data[TARGET].nunique() if TARGET in data.columns else len(target_one_hot_columns)
+    )
+    target_display = TARGET if TARGET in data.columns else f"{TARGET} (one-hot)"
+    target_column_count = 1 if TARGET in data.columns else len(target_one_hot_columns)
     a, b, c, d = st.columns(4)
     a.metric("Total records", f"{len(data):,}")
-    b.metric("Input features", data.shape[1] - 1)
-    c.metric("Obesity classes", data[TARGET].nunique())
-    d.metric("Target variable", TARGET)
+    b.metric("Input features", data.shape[1] - target_column_count)
+    c.metric("Obesity classes", obesity_class_count)
+    d.metric("Target variable", target_display)
     st.subheader("Dataset Preview")
     st.dataframe(data, width="stretch", hide_index=True)
     st.download_button(
@@ -289,6 +397,7 @@ def section_overview(data: pd.DataFrame) -> None:
         data.to_csv(index=False).encode("utf-8"),
         "obesity_data.csv",
         "text/csv",
+        key=f"download_{title}",
     )
 
 
@@ -304,7 +413,7 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
         chosen_model_name = source_option.replace("Predicted: ", "")
         model_pipeline = models[chosen_model_name]
         chart_subset["Predicted_Target"] = model_pipeline.predict(
-            chart_subset.drop(columns=[TARGET])
+            get_model_features(chart_subset)
         )
         target_col = "Predicted_Target"
 
@@ -634,9 +743,18 @@ def section_models(data: pd.DataFrame, params: dict) -> tuple[dict, pd.DataFrame
 
     st.subheader("Model comparison")
     st.caption(
-        "All models use the same stratified 80/20 split (random state 42)."
-        " Categorical inputs are one-hot encoded; numeric inputs are standardized."
+        "All models use validation-selected hyperparameters and the same stratified "
+        "80/20 split (random state 42). BMI is excluded from training; SMOTE is "
+        "applied to training data only."
     )
+    if TUNING_RESULTS_PATH.exists():
+        st.subheader("Exhaustive hyperparameter tuning results")
+        st.caption("Best macro-F1 result from every tested parameter combination (3-fold CV).")
+        st.dataframe(
+            load_tuning_results().style.format({"Best CV macro F1": "{:.2%}"}),
+            width="stretch",
+            hide_index=True,
+        )
     st.dataframe(
         ranking.style.format(
             {
@@ -744,7 +862,7 @@ def section_prediction(data: pd.DataFrame, params: dict) -> None:
     selected_model = st.selectbox("Prediction model", list(models), index=list(models).index(best_model))
     st.caption(f"Recommended by F1-score on the hold-out test set: {best_model}.")
     
-    features = data.drop(columns=TARGET)
+    features = get_model_features(data)
     values = {}
     with st.form("prediction_form"):
         columns = st.columns(2)
@@ -796,11 +914,11 @@ def section_prediction(data: pd.DataFrame, params: dict) -> None:
 def main() -> None:
     st.title("Obesity Levels Prediction")
     try:
-        source_data = load_data()
+        data = load_data()
+        raw_data = load_raw_data()
     except Exception as error:
         st.error(f"Could not load the CSV: {error}")
         st.stop()
-    data = make_dashboard_data(source_data)
     if TARGET not in data.columns:
         st.error(f"The CSV must include a '{TARGET}' target column.")
         st.stop()
@@ -898,8 +1016,8 @@ def main() -> None:
         label_visibility="collapsed",
     )
 
-    # Show the sidebar only for the chart and model-comparison views.
-    if selected_tab not in ("Charts", "Model comparison"):
+    # Only charts need interactive sidebar controls.
+    if selected_tab != "Charts":
         st.markdown(
             """
             <style>
@@ -913,7 +1031,25 @@ def main() -> None:
 
     # Conditionally execute page blocks
     if selected_tab == "Data explorer":
-        section_overview(source_data)
+        raw_tab, prepared_tab, transformed_tab = st.tabs(
+            ["Raw dataset", "Cleaned dataset", "Training transformation"]
+        )
+        with raw_tab:
+            section_overview(raw_data, "Raw dataset")
+        with prepared_tab:
+            section_overview(
+                data,
+                "Cleaned dataset: duplicates removed, outliers capped, BMI added",
+            )
+        with transformed_tab:
+            st.caption(
+                "BMI is excluded from training. Binary fields are 0/1; CAEC, CALC, "
+                "MTRANS, and NObeyesdad are one-hot encoded."
+            )
+            section_overview(
+                make_transformed_explorer_data(data),
+                "Dataset after training transformation",
+            )
 
     elif selected_tab == "Charts":
         source_option, params = sidebar_tuning()
@@ -922,8 +1058,7 @@ def main() -> None:
         section_charts(subset, models, source_option)
 
     elif selected_tab == "Model comparison":
-        params = model_comparison_tuning()
-        section_models(data, params)
+        section_models(data, DEFAULT_PARAMS)
 
     elif selected_tab == "Make a prediction":
         section_prediction(data, DEFAULT_PARAMS)
