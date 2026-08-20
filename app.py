@@ -62,6 +62,69 @@ def load_data() -> pd.DataFrame:
     return data
 
 
+def make_dashboard_data(data: pd.DataFrame) -> pd.DataFrame:
+    """Decode available categorical encodings while preserving numeric values."""
+    dashboard_data = data.copy()
+    if "Gender_Male" in dashboard_data:
+        dashboard_data["Gender"] = np.where(dashboard_data["Gender_Male"], "Male", "Female")
+    elif "Gender" in dashboard_data and pd.api.types.is_numeric_dtype(dashboard_data["Gender"]):
+        dashboard_data["Gender"] = dashboard_data["Gender"].map({0: "Female", 1: "Male"})
+
+    binary_columns = {
+        "family_history_with_overweight": "family_history_with_overweight_yes",
+        "FAVC": "FAVC_yes",
+        "SMOKE": "SMOKE_yes",
+        "SCC": "SCC_yes",
+    }
+    for column, dummy_column in binary_columns.items():
+        if dummy_column in dashboard_data:
+            dashboard_data[column] = np.where(dashboard_data[dummy_column], "yes", "no")
+        elif column in dashboard_data and pd.api.types.is_numeric_dtype(dashboard_data[column]):
+            dashboard_data[column] = dashboard_data[column].map({0: "no", 1: "yes"})
+
+    for prefix in ("CAEC", "CALC"):
+        dummy_columns = [f"{prefix}_{label}" for label in ("Frequently", "Sometimes", "no")]
+        if all(column in dashboard_data for column in dummy_columns):
+            dashboard_data[prefix] = "Always"
+            for label, column in zip(("Frequently", "Sometimes", "no"), dummy_columns):
+                dashboard_data.loc[dashboard_data[column], prefix] = label
+        elif prefix in dashboard_data and pd.api.types.is_numeric_dtype(dashboard_data[prefix]):
+            dashboard_data[prefix] = dashboard_data[prefix].map(
+                {0: "no", 1: "Sometimes", 2: "Frequently", 3: "Always"}
+            )
+
+    transport_labels = {
+        "MTRANS_Bike": "Bike",
+        "MTRANS_Motorbike": "Motorbike",
+        "MTRANS_Public_Transportation": "Public_Transportation",
+        "MTRANS_Walking": "Walking",
+    }
+    if any(column in dashboard_data for column in transport_labels):
+        dashboard_data["MTRANS"] = "Automobile"
+        for column, label in transport_labels.items():
+            if column in dashboard_data:
+                dashboard_data.loc[dashboard_data[column].eq(1), "MTRANS"] = label
+
+    encoded_columns = [
+        "Gender_Male",
+        "family_history_with_overweight_yes",
+        "FAVC_yes",
+        "CAEC_Frequently",
+        "CAEC_Sometimes",
+        "CAEC_no",
+        "SMOKE_yes",
+        "SCC_yes",
+        "CALC_Frequently",
+        "CALC_Sometimes",
+        "CALC_no",
+        "MTRANS_Bike",
+        "MTRANS_Motorbike",
+        "MTRANS_Public_Transportation",
+        "MTRANS_Walking",
+    ]
+    return dashboard_data.drop(columns=encoded_columns, errors="ignore")
+
+
 def make_preprocessor(features: pd.DataFrame) -> ColumnTransformer:
     numeric = features.select_dtypes(include=np.number).columns.tolist()
     categorical = features.select_dtypes(exclude=np.number).columns.tolist()
@@ -240,7 +303,9 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
     if source_option != "Ground Truth (Actual Labels)":
         chosen_model_name = source_option.replace("Predicted: ", "")
         model_pipeline = models[chosen_model_name]
-        chart_subset["Predicted_Target"] = model_pipeline.predict(chart_subset.drop(columns=[TARGET]))
+        chart_subset["Predicted_Target"] = model_pipeline.predict(
+            chart_subset.drop(columns=[TARGET])
+        )
         target_col = "Predicted_Target"
 
     counts = chart_subset[target_col].value_counts()
@@ -731,10 +796,11 @@ def section_prediction(data: pd.DataFrame, params: dict) -> None:
 def main() -> None:
     st.title("Obesity Levels Prediction")
     try:
-        data = load_data()
+        source_data = load_data()
     except Exception as error:
         st.error(f"Could not load the CSV: {error}")
         st.stop()
+    data = make_dashboard_data(source_data)
     if TARGET not in data.columns:
         st.error(f"The CSV must include a '{TARGET}' target column.")
         st.stop()
@@ -847,7 +913,7 @@ def main() -> None:
 
     # Conditionally execute page blocks
     if selected_tab == "Data explorer":
-        section_overview(data)
+        section_overview(source_data)
 
     elif selected_tab == "Charts":
         source_option, params = sidebar_tuning()
