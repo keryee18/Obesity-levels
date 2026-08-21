@@ -184,102 +184,8 @@ def sidebar_tuning() -> tuple[str, dict]:
     # Charts allow a single SMOTE value to be adjusted for the chosen model.
     params["smote_k_neighbors_by_model"] = {}
 
-    if source_option != "Ground Truth (Actual Labels)":
-        st.sidebar.markdown("---")
-        st.sidebar.header("Hyperparameter Tuning")
-        params["smote_enabled"] = st.sidebar.toggle("Apply SMOTE to training data", value=True)
-        if params["smote_enabled"]:
-            params["smote_k_neighbors"] = st.sidebar.slider("SMOTE: Nearest Neighbors", 1, 15, 5)
-
-        if source_option == "Predicted: Random Forest":
-            st.sidebar.markdown("**Random Forest**")
-            params["rf_n_estimators"] = st.sidebar.slider("RF: Estimators", 50, 500, 250, 50)
-            params["rf_max_depth"] = st.sidebar.slider("RF: Max Depth", 2, 30, 12, 1)
-            params["rf_min_samples_split"] = st.sidebar.slider("RF: Min Samples Split", 2, 20, 2)
-            params["rf_min_samples_leaf"] = st.sidebar.slider("RF: Min Samples Leaf", 1, 20, 1)
-            params["rf_max_features"] = st.sidebar.selectbox("RF: Features per Split", ["sqrt", "log2"])
-            rf_leaf_nodes = st.sidebar.selectbox("RF: Maximum Leaf Nodes", ["Unlimited", 25, 50, 100, 200])
-            params["rf_max_leaf_nodes"] = None if rf_leaf_nodes == "Unlimited" else rf_leaf_nodes
-
-        elif source_option == "Predicted: Decision Tree":
-            st.sidebar.markdown("**Decision Tree**")
-            params["dt_max_depth"] = st.sidebar.slider("DT: Max Depth", 1, 30, 12, 1)
-            params["dt_min_samples_split"] = st.sidebar.slider("DT: Min Samples Split", 2, 20, 2, 1)
-            params["dt_min_samples_leaf"] = st.sidebar.slider("DT: Min Samples Leaf", 1, 20, 1)
-            params["dt_criterion"] = st.sidebar.selectbox("DT: Split Criterion", ["gini", "entropy", "log_loss"])
-            dt_leaf_nodes = st.sidebar.selectbox("DT: Maximum Leaf Nodes", ["Unlimited", 10, 25, 50, 100])
-            params["dt_max_leaf_nodes"] = None if dt_leaf_nodes == "Unlimited" else dt_leaf_nodes
-
-        elif source_option == "Predicted: Logistic Regression":
-            st.sidebar.markdown("**Logistic Regression**")
-            params["lr_c"] = st.sidebar.select_slider("LR: Inverse Regularization (C)", options=[0.01, 0.1, 1.0, 10.0, 100.0], value=1.0)
-            params["lr_max_iter"] = st.sidebar.slider("LR: Max Iterations", 500, 5000, 3000, 500)
-            params["lr_solver"] = st.sidebar.selectbox("LR: Solver", ["lbfgs", "newton-cg", "saga"])
-            lr_class_weight = st.sidebar.selectbox("LR: Class Weight", ["None", "balanced"])
-            params["lr_class_weight"] = None if lr_class_weight == "None" else lr_class_weight
-            params["lr_tol"] = st.sidebar.select_slider("LR: Convergence Tolerance", [0.00001, 0.0001, 0.001, 0.01], value=0.0001)
-
-        elif source_option == "Predicted: K-Nearest Neighbors":
-            st.sidebar.markdown("**K-Nearest Neighbors**")
-            params["knn_neighbors"] = st.sidebar.slider("KNN: Number of Neighbors (k)", 1, 25, 7, 2)
-            params["knn_weights"] = st.sidebar.selectbox("KNN: Neighbor Weighting", ["uniform", "distance"])
-            params["knn_p"] = st.sidebar.selectbox("KNN: Distance Metric", [2, 1], format_func=lambda value: "Euclidean" if value == 2 else "Manhattan")
-            params["knn_leaf_size"] = st.sidebar.slider("KNN: Leaf Size", 10, 60, 30, 5)
-
-    st.sidebar.markdown("---")
     return source_option, params
 
-
-def model_comparison_tuning() -> dict:
-    """Render all model hyperparameters in the comparison sidebar."""
-    st.sidebar.header("Hyperparameter Tuning")
-    params = DEFAULT_PARAMS.copy()
-    params["smote_enabled"] = st.sidebar.toggle("Apply SMOTE to training data", value=True)
-    if params["smote_enabled"]:
-        params["smote_k_neighbors"] = st.sidebar.slider("SMOTE: Nearest Neighbors", 1, 15, 5)
-
-    st.sidebar.markdown("**Random Forest**")
-    params["rf_n_estimators"] = st.sidebar.slider("RF: Estimators", 50, 500, 250, 50)
-    params["rf_max_depth"] = st.sidebar.slider("RF: Max Depth", 2, 30, 12, 1)
-    params["rf_min_samples_split"] = st.sidebar.slider("RF: Min Samples Split", 2, 20, 2)
-    params["rf_min_samples_leaf"] = st.sidebar.slider("RF: Min Samples Leaf", 1, 20, 1)
-    params["rf_max_features"] = st.sidebar.selectbox("RF: Features per Split", ["sqrt", "log2"])
-    rf_leaf_nodes = st.sidebar.selectbox("RF: Maximum Leaf Nodes", ["Unlimited", 25, 50, 100, 200])
-    params["rf_max_leaf_nodes"] = None if rf_leaf_nodes == "Unlimited" else rf_leaf_nodes
-
-    st.sidebar.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
-    st.sidebar.markdown("**Decision Tree**")
-    params["dt_max_depth"] = st.sidebar.slider("DT: Max Depth", 1, 30, 12, 1)
-    params["dt_min_samples_split"] = st.sidebar.slider(
-        "DT: Min Samples Split", 2, 20, 2, 1
-    )
-    params["dt_min_samples_leaf"] = st.sidebar.slider("DT: Min Samples Leaf", 1, 20, 1)
-    params["dt_criterion"] = st.sidebar.selectbox("DT: Split Criterion", ["gini", "entropy", "log_loss"])
-    dt_leaf_nodes = st.sidebar.selectbox("DT: Maximum Leaf Nodes", ["Unlimited", 10, 25, 50, 100])
-    params["dt_max_leaf_nodes"] = None if dt_leaf_nodes == "Unlimited" else dt_leaf_nodes
-
-    st.sidebar.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
-    st.sidebar.markdown("**Logistic Regression**")
-    params["lr_c"] = st.sidebar.select_slider(
-        "LR: Inverse Regularization (C)",
-        options=[0.01, 0.1, 1.0, 10.0, 100.0],
-        value=1.0,
-    )
-    params["lr_max_iter"] = st.sidebar.slider("LR: Max Iterations", 500, 5000, 3000, 500)
-    params["lr_solver"] = st.sidebar.selectbox("LR: Solver", ["lbfgs", "newton-cg", "saga"])
-    lr_class_weight = st.sidebar.selectbox("LR: Class Weight", ["None", "balanced"])
-    params["lr_class_weight"] = None if lr_class_weight == "None" else lr_class_weight
-    params["lr_tol"] = st.sidebar.select_slider("LR: Convergence Tolerance", [0.00001, 0.0001, 0.001, 0.01], value=0.0001)
-
-    st.sidebar.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
-    st.sidebar.markdown("**K-Nearest Neighbors**")
-    params["knn_neighbors"] = st.sidebar.slider(
-        "KNN: Number of Neighbors (k)", 1, 25, 7, 2
-    )
-    params["knn_weights"] = st.sidebar.selectbox("KNN: Neighbor Weighting", ["uniform", "distance"])
-    params["knn_p"] = st.sidebar.selectbox("KNN: Distance Metric", [2, 1], format_func=lambda value: "Euclidean" if value == 2 else "Manhattan")
-    params["knn_leaf_size"] = st.sidebar.slider("KNN: Leaf Size", 10, 60, 30, 5)
-    return params
 
 
 @st.cache_data(show_spinner="Training and evaluating models with updated hyperparameters…")
@@ -834,19 +740,33 @@ def section_models(data: pd.DataFrame, params: dict) -> tuple[dict, pd.DataFrame
         .reset_index()
         .melt("Actual", var_name="Predicted", value_name="Count")
     )
-    heatmap = (
+    color_scale = alt.Scale(range=MACARON_GRADIENT)
+    heatmap_cells = (
         alt.Chart(matrix_df)
         .mark_rect()
         .encode(
-            x=alt.X("Predicted:N", sort=labels),
-            y=alt.Y("Actual:N", sort=labels),
-            color=alt.Color(
-                "Count:Q",
-                scale=alt.Scale(range=MACARON_GRADIENT),
-            ),
+            x=alt.X("Predicted:N", sort=labels, title="Predicted Label"),
+            y=alt.Y("Actual:N", sort=labels, title="True Label"),
+            color=alt.Color("Count:Q", scale=color_scale, title="Count"),
             tooltip=["Actual", "Predicted", "Count"],
         )
-        .properties(height=360, title="Confusion matrix")
+    )
+    heatmap_values = (
+        alt.Chart(matrix_df)
+        .mark_text(fontSize=14)
+        .encode(
+            x=alt.X("Predicted:N", sort=labels),
+            y=alt.Y("Actual:N", sort=labels),
+            text=alt.Text("Count:Q", format="d"),
+            color=alt.condition(
+                alt.datum.Count > matrix.max() * 0.5,
+                alt.value("white"),
+                alt.value("#1f1f1f"),
+            ),
+        )
+    )
+    heatmap = (heatmap_cells + heatmap_values).properties(
+        height=500, title=f"Confusion Matrix - {chosen}"
     )
     st.altair_chart(heatmap, width="stretch")
 
