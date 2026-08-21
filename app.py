@@ -100,6 +100,63 @@ def load_tuning_results() -> pd.DataFrame:
     return pd.read_csv(TUNING_RESULTS_PATH)
 
 
+@st.cache_data(show_spinner=False)
+def load_tuned_params() -> dict:
+    """Load the cross-validation-selected parameters, with safe defaults as fallback."""
+    params = DEFAULT_PARAMS.copy()
+    params["smote_k_neighbors_by_model"] = DEFAULT_PARAMS[
+        "smote_k_neighbors_by_model"
+    ].copy()
+
+    if not TUNING_RESULTS_PATH.exists():
+        return params
+
+    results = load_tuning_results().set_index("Model")
+
+    def value(model: str, column: str, fallback):
+        selected = results.at[model, column]
+        return fallback if pd.isna(selected) else selected
+
+    def integer(model: str, column: str, fallback):
+        return int(value(model, column, fallback))
+
+    def optional_integer(model: str, column: str, fallback):
+        selected = value(model, column, fallback)
+        return None if pd.isna(selected) else int(selected)
+
+    params.update(
+        {
+            "rf_n_estimators": integer("Random Forest", "n_estimators", params["rf_n_estimators"]),
+            "rf_max_depth": optional_integer("Random Forest", "max_depth", params["rf_max_depth"]),
+            "rf_min_samples_split": integer("Random Forest", "min_samples_split", params["rf_min_samples_split"]),
+            "rf_min_samples_leaf": integer("Random Forest", "min_samples_leaf", params["rf_min_samples_leaf"]),
+            "rf_max_features": value("Random Forest", "max_features", params["rf_max_features"]),
+            "rf_max_leaf_nodes": optional_integer("Random Forest", "max_leaf_nodes", params["rf_max_leaf_nodes"]),
+            "dt_max_depth": optional_integer("Decision Tree", "max_depth", params["dt_max_depth"]),
+            "dt_min_samples_split": integer("Decision Tree", "min_samples_split", params["dt_min_samples_split"]),
+            "dt_min_samples_leaf": integer("Decision Tree", "min_samples_leaf", params["dt_min_samples_leaf"]),
+            "dt_criterion": value("Decision Tree", "criterion", params["dt_criterion"]),
+            "dt_max_leaf_nodes": optional_integer("Decision Tree", "max_leaf_nodes", params["dt_max_leaf_nodes"]),
+            "lr_c": float(value("Logistic Regression", "C", params["lr_c"])),
+            "lr_max_iter": integer("Logistic Regression", "max_iter", params["lr_max_iter"]),
+            "lr_solver": value("Logistic Regression", "solver", params["lr_solver"]),
+            "lr_class_weight": value("Logistic Regression", "class_weight", params["lr_class_weight"]),
+            "lr_tol": float(value("Logistic Regression", "tol", params["lr_tol"])),
+            "knn_neighbors": integer("K-Nearest Neighbors", "n_neighbors", params["knn_neighbors"]),
+            "knn_weights": value("K-Nearest Neighbors", "weights", params["knn_weights"]),
+            "knn_p": integer("K-Nearest Neighbors", "p", params["knn_p"]),
+            "knn_leaf_size": integer("K-Nearest Neighbors", "leaf_size", params["knn_leaf_size"]),
+        }
+    )
+    params["smote_k_neighbors_by_model"].update(
+        {
+            model: integer(model, "k_neighbors", params["smote_k_neighbors_by_model"][model])
+            for model in params["smote_k_neighbors_by_model"]
+        }
+    )
+    return params
+
+
 def get_model_features(data: pd.DataFrame) -> pd.DataFrame:
     """Return input features used for model training and prediction."""
     return data.drop(columns=[TARGET, *MODEL_EXCLUDED_COLUMNS], errors="ignore")
@@ -165,7 +222,7 @@ def make_transformed_explorer_data(data: pd.DataFrame) -> pd.DataFrame:
     return transformed_data
 
 
-def sidebar_tuning() -> tuple[str, dict]:
+def sidebar_tuning(params: dict) -> tuple[str, dict]:
     st.sidebar.header("Chart Data Source")
 
     source_option = st.sidebar.radio(
@@ -179,10 +236,6 @@ def sidebar_tuning() -> tuple[str, dict]:
         ],
         index=0,
     )
-
-    params = DEFAULT_PARAMS.copy()
-    # Charts allow a single SMOTE value to be adjusted for the chosen model.
-    params["smote_k_neighbors_by_model"] = {}
 
     return source_option, params
 
@@ -325,10 +378,14 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
 
     counts = chart_subset[target_col].value_counts()
 
-    bar_col, pie_col = st.columns(2)
+    overview_tab, demographics_tab, habits_tab, body_tab = st.tabs(
+        ["Overview", "Demographics & Mobility", "Diet & Daily Habits", "Body & Physical Activity"]
+    )
+
+    overview_tab.subheader("Obesity-level distribution")
+    bar_col, pie_col = overview_tab.columns(2)
 
     with bar_col:
-        st.subheader("Obesity-level distribution")
         counts_df = counts.rename_axis("Obesity level").reset_index(name="Count")
         chart = alt.Chart(counts_df).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
             x=alt.X("Obesity level:N", sort="-y", title=None),
@@ -343,7 +400,6 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
         st.altair_chart(chart, width="stretch")
 
     with pie_col:
-        st.subheader("Distribution of Obesity Levels (Pie Chart)")
         counts_df = counts.rename_axis("Obesity level").reset_index(name="Count")
         counts_df["Percent"] = counts_df["Count"] / counts_df["Count"].sum()
         counts_df = counts_df.sort_values("Count", ascending=False).reset_index(drop=True)
@@ -378,7 +434,8 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
         
         st.altair_chart(final_pie, width="stretch")
 
-    left, right = st.columns(2)
+    left = overview_tab.container()
+    right = habits_tab.container()
     with left:
         st.subheader("Numeric variable distribution")
         numeric_choices = ["Age", "Height", "Weight", "FCVC", "NCP", "CH2O", "FAF", "TUE"]
@@ -413,8 +470,8 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
         ).properties(height=300)
         st.altair_chart(alcohol_chart, width="stretch")
 
-    st.subheader("Lifestyle factor by obesity level")
-    lifestyle = st.selectbox(
+    overview_tab.subheader("Lifestyle factor by obesity level")
+    lifestyle = overview_tab.selectbox(
         "Choose a lifestyle factor", ["CAEC", "CALC", "FAVC", "SMOKE", "SCC", "MTRANS", "family_history_with_overweight"]
     )
     grouped = chart_subset.groupby([lifestyle, target_col]).size().reset_index(name="Count")
@@ -428,9 +485,9 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
         ),
         tooltip=[lifestyle, target_col, "Count"],
     ).properties(height=340)
-    st.altair_chart(lifestyle_chart, width="stretch")
+    overview_tab.altair_chart(lifestyle_chart, width="stretch")
 
-    transport_col, scatter_col = st.columns(2)
+    transport_col, scatter_col = demographics_tab.columns(2)
     with transport_col:
         st.subheader("Transportation methods by gender")
         transport_counts = chart_subset.groupby(["MTRANS", "Gender"]).size().reset_index(name="Count")
@@ -464,7 +521,7 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
         ).properties(height=520).interactive()
         st.altair_chart(scatter_chart, width="stretch")
 
-    gender_col, facet_col = st.columns(2)
+    gender_col, facet_col = demographics_tab.columns(2)
     with gender_col:
         st.subheader("Obesity levels by gender")
         obesity_gender_counts = chart_subset.groupby([target_col, "Gender"]).size().reset_index(name="Count")
@@ -495,7 +552,7 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
         )
         st.altair_chart(facet_chart)
 
-    caec_col, calc_col = st.columns(2)
+    caec_col, calc_col = habits_tab.columns(2)
     with caec_col:
         st.subheader("Eating between meals (CAEC) by gender")
         caec_counts = chart_subset.groupby(["CAEC", "Gender"]).size().reset_index(name="Count")
@@ -530,7 +587,7 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
         ).properties(height=420)
         st.altair_chart(calc_family_chart, width="stretch")
 
-    st.subheader("Physical activity levels across weight categories")
+    body_tab.subheader("Physical activity levels across weight categories")
     weight_order = [
         "Insufficient_Weight",
         "Normal_Weight",
@@ -555,14 +612,13 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
         ),
         tooltip=[target_col, alt.Tooltip("Average FAF:Q", format=".2f")],
     ).properties(height=380)
-    st.altair_chart(activity_chart, width="stretch")
+    body_tab.altair_chart(activity_chart, width="stretch")
 
-    bmi_col, favc_col = st.columns(2)
+    bmi_col = body_tab.container()
+    favc_col = habits_tab.container()
     with bmi_col:
         st.subheader("BMI distribution across weight categories by gender")
-        bmi_data = chart_subset.copy()
-        bmi_data["BMI"] = bmi_data["Weight"] / (bmi_data["Height"] ** 2)
-        bmi_chart = alt.Chart(bmi_data).mark_boxplot(size=28, outliers=True).encode(
+        bmi_chart = alt.Chart(chart_subset).mark_boxplot(size=28, outliers=True).encode(
             x=alt.X(f"{target_col}:N", title="Weight category", sort=weight_order),
             y=alt.Y("BMI:Q", title="Body Mass Index (BMI)"),
             color=alt.Color(
@@ -602,7 +658,7 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
         st.altair_chart(favc_chart, width="stretch")
 
     # Hydration (CH2O) and Meal Frequency (NCP) by Obesity Category
-    st.subheader("Hydration (CH2O) and Meal Frequency (NCP) by Obesity Category")
+    habits_tab.subheader("Hydration (CH2O) and Meal Frequency (NCP) by Obesity Category")
 
     ch2o_ncp_df = chart_subset.copy()
     ch2o_ncp_df["NCP_Group"] = ch2o_ncp_df["NCP"].round().astype(int).astype(str) + " Meals/Day"
@@ -637,7 +693,7 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
         .properties(height=450)
     )
 
-    st.altair_chart(hydration_chart, width="stretch")
+    habits_tab.altair_chart(hydration_chart, width="stretch")
 
 
 def section_models(data: pd.DataFrame, params: dict) -> tuple[dict, pd.DataFrame]:
@@ -657,10 +713,14 @@ def section_models(data: pd.DataFrame, params: dict) -> tuple[dict, pd.DataFrame
         st.subheader("Exhaustive hyperparameter tuning results")
         st.caption("Best macro-F1 result from every tested parameter combination (3-fold CV).")
         st.dataframe(
-            load_tuning_results().style.format({"Best CV macro F1": "{:.2%}"}),
+            load_tuning_results()
+            .sort_values("Best CV macro F1", ascending=False)
+            .style.format({"Best CV macro F1": "{:.2%}"}),
             width="stretch",
             hide_index=True,
         )
+    st.subheader("Hold-out test set model performance")
+    st.caption("Metrics from the same stratified 20% test set, ranked by macro F1-score.")
     st.dataframe(
         ranking.style.format(
             {
@@ -842,6 +902,7 @@ def main() -> None:
     if TARGET not in data.columns:
         st.error(f"The CSV must include a '{TARGET}' target column.")
         st.stop()
+    tuned_params = load_tuned_params()
 
     # Apply global theme overrides and transform st.segmented_control into underlined tabs
     st.markdown(
@@ -972,16 +1033,16 @@ def main() -> None:
             )
 
     elif selected_tab == "Charts":
-        source_option, params = sidebar_tuning()
+        source_option, params = sidebar_tuning(tuned_params)
         subset = render_data_filters(data)
         models, _, _, _ = train_models(data, params)
         section_charts(subset, models, source_option)
 
     elif selected_tab == "Model comparison":
-        section_models(data, DEFAULT_PARAMS)
+        section_models(data, tuned_params)
 
     elif selected_tab == "Make a prediction":
-        section_prediction(data, DEFAULT_PARAMS)
+        section_prediction(data, tuned_params)
 
 
 if __name__ == "__main__":
