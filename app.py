@@ -156,7 +156,7 @@ def load_tuned_params() -> dict:
     )
     return params
 
-
+# Exclude Target (NObeyesdad) & MODEL_EXECUTED_COLUMNS (BMI) from model transformation
 def get_model_features(data: pd.DataFrame) -> pd.DataFrame:
     """Return input features used for model training and prediction."""
     return data.drop(columns=[TARGET, *MODEL_EXCLUDED_COLUMNS], errors="ignore")
@@ -188,6 +188,7 @@ def make_preprocessor(features: pd.DataFrame) -> ColumnTransformer:
 
     return ColumnTransformer(
         [
+            # Standardize numeric features so they are on a comparable scale.
             ("numeric", StandardScaler(), numeric),
             (
                 "binary",
