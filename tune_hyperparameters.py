@@ -90,7 +90,7 @@ def tune_models() -> pd.DataFrame:
             pipeline,
             parameter_grid,
             scoring="f1_macro",
-            cv=3,
+            cv=5,
             n_jobs=-1,
             refit=False,
         )
