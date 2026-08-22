@@ -712,7 +712,7 @@ def section_models(data: pd.DataFrame, params: dict) -> tuple[dict, pd.DataFrame
     )
     if TUNING_RESULTS_PATH.exists():
         st.subheader("Exhaustive hyperparameter tuning results")
-        st.caption("Best macro-F1 result from every tested parameter combination (3-fold CV).")
+        st.caption("Best macro-F1 result from every tested parameter combination (5-fold CV).")
         st.dataframe(
             load_tuning_results()
             .sort_values("Best CV macro F1", ascending=False)
