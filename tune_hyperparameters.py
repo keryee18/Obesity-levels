@@ -102,8 +102,9 @@ def tune_models() -> pd.DataFrame:
         }
         result.update(
             {
-                parameter.removeprefix("model__").removeprefix("smote__"): value
-                for parameter, value in search.best_params_.items()
+            parameter.removeprefix("model__").removeprefix("smote__"):
+                "None" if value is None else value
+            for parameter, value in search.best_params_.items()
             }
         )
         results.append(result)

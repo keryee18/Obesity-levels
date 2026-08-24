@@ -121,8 +121,14 @@ def load_tuned_params() -> dict:
         return int(value(model, column, fallback))
 
     def optional_integer(model: str, column: str, fallback):
-        selected = value(model, column, fallback)
-        return None if pd.isna(selected) else int(selected)
+        if column not in results.columns:
+            return fallback
+        selected = results.at[model, column]
+        if pd.isna(selected):
+            return fallback              # genuinely missing → use fallback
+        if selected == "None":
+            return None                  # explicitly tuned to unbounded → keep None
+        return int(selected)
 
     params.update(
         {
