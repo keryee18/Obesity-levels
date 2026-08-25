@@ -4,11 +4,22 @@ import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
+
+#SMOTE is used to address class imbalance in the training dataset.
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline as ImbPipeline
-from sklearn.compose import ColumnTransformer
+
+#Machine learning models
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+
+#Data preprocessing and model evaluation
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
+from sklearn.compose import ColumnTransformer
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -17,25 +28,32 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
 )
-from sklearn.model_selection import train_test_split
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
-from sklearn.tree import DecisionTreeClassifier
 
+#Application Configuration
+#Configure the Streamlit page title and use a wide layout to provide more space for tables and visualizations.
 st.set_page_config(page_title="Obesity Levels Predictor", layout="wide")
 
+#Defined the file paths for the cleaned dataset, raw dataset, and hyperparameter tuning results.
 DATA_PATH = Path(__file__).parent / "data" / "ObesityDataSet_Cleaned_Outliers_Capped.csv"
 RAW_DATA_PATH = Path(__file__).parent / "data" / "ObesityDataSet_raw_and_data_sinthetic.csv"
 TUNING_RESULTS_PATH = Path(__file__).parent / "data" / "best_hyperparameters.csv"
+
+#Define the target variables taht the machine learning modles are required to predict.
 TARGET = "NObeyesdad"
+
+#BMI is excluded from model training according tot he project design
 MODEL_EXCLUDED_COLUMNS = ["BMI"]
+
+#Set a fixed ramdom state to ensure reproducible results
 RANDOM_STATE = 42
 
 # Explicitly defining custom orders for Gender and Yes/No variables
 GENDER_ORDER = ["Male", "Female"]
 YES_NO_ORDER = ["yes", "no"]
 
+#Define Model Parameters
+#Define default hyperparameters for each machine learning model
+#These values are used if the tuned hyperparameter file is unvailable
 DEFAULT_PARAMS = {
     "rf_n_estimators": 250,
     "rf_max_depth": 16,
@@ -57,7 +75,11 @@ DEFAULT_PARAMS = {
     "knn_weights": "uniform",
     "knn_p": 1,
     "knn_leaf_size": 20,
+
+    #Enable SMOTE to address class imbalance
     "smote_enabled": True,
+
+    #Define the number of nearest neighbours used by SMOTE for each mahcine larning model
     "smote_k_neighbors": 3,
     "smote_k_neighbors_by_model": {
         "Random Forest": 5,
@@ -80,37 +102,45 @@ MACARON_GRADIENT = ["#E3F2FD", "#0B3D91"]
 GENDER_PALETTE = ["#5B8DB8", "#D4B85A"]
 YES_NO_PALETTE = ["#9C7FB8", "#E27D8C"]
 
-
+#Load Dataset
+#Load the cleaned dataset used for analysis and model training
+#Streamlit caching prevents the file from being loaded repeatedly
 @st.cache_data(show_spinner=False)
 def load_data() -> pd.DataFrame:
     data = pd.read_csv(DATA_PATH)
     data.columns = data.columns.str.strip()
     return data
 
-
+#Load the original raw dataset for comparison with the cleaned dataset
 @st.cache_data(show_spinner=False)
 def load_raw_data() -> pd.DataFrame:
     data = pd.read_csv(RAW_DATA_PATH)
     data.columns = data.columns.str.strip()
     return data
 
-
+#Load the results produced during hyperparameter tuning
 @st.cache_data(show_spinner=False)
 def load_tuning_results() -> pd.DataFrame:
     return pd.read_csv(TUNING_RESULTS_PATH)
 
-
+#Load Tuned Hyperparameters
+#Load the best hyperparameters selected during cross-validation
+#If the tuning results file does not exist, the default parameters defined above are used instead
 @st.cache_data(show_spinner=False)
 def load_tuned_params() -> dict:
     """Load the cross-validation-selected parameters, with safe defaults as fallback."""
     params = DEFAULT_PARAMS.copy()
+
+    #Create a separate copy of the SMOTE settings for each model
     params["smote_k_neighbors_by_model"] = DEFAULT_PARAMS[
         "smote_k_neighbors_by_model"
     ].copy()
 
+    #Use default parameters when the tuning result file is unavailable
     if not TUNING_RESULTS_PATH.exists():
         return params
 
+    #Set the model name as the index so that indivisual hyperparameter values can be accessed easily
     results = load_tuning_results().set_index("Model")
 
     def value(model: str, column: str, fallback):
@@ -161,7 +191,11 @@ def get_model_features(data: pd.DataFrame) -> pd.DataFrame:
     """Return input features used for model training and prediction."""
     return data.drop(columns=[TARGET, *MODEL_EXCLUDED_COLUMNS], errors="ignore")
 
-
+#Data Preprocessing
+#Prepare numerical and categorical variables before model training
+#Numerical variables are standadized using StandarScaler
+#Binary categorical variables are converted into numerical values using OrdinalEncoder
+#Multi-class categorical variables are converted using OneHotEncoder
 def make_preprocessor(features: pd.DataFrame) -> ColumnTransformer:
     # Binary categories are represented as 0/1 for training.
     binary_categories = {
@@ -171,6 +205,8 @@ def make_preprocessor(features: pd.DataFrame) -> ColumnTransformer:
         "SMOKE": ["no", "yes"],
         "SCC": ["no", "yes"],
     }
+
+    #Identify which binary variables are available in the daatset
     binary_features = [
         column for column in binary_categories if column in features.columns
     ]
@@ -180,16 +216,20 @@ def make_preprocessor(features: pd.DataFrame) -> ColumnTransformer:
         column for column in ["CAEC", "CALC", "MTRANS"] if column in features.columns
     ]
 
+    #Identify numerical variables in the dataset
     numeric = [
         column
         for column in features.select_dtypes(include=np.number).columns
         if column not in binary_features and column not in one_hot_features
     ]
 
+    #Apply the appropriate transformation to each feature type
     return ColumnTransformer(
         [
             # Standardize numeric features so they are on a comparable scale.
             ("numeric", StandardScaler(), numeric),
+
+            #Convert binary categorical variables into numerical values
             (
                 "binary",
                 OrdinalEncoder(
@@ -199,6 +239,8 @@ def make_preprocessor(features: pd.DataFrame) -> ColumnTransformer:
                 ),
                 binary_features,
             ),
+
+            #Convert multi-category variables into one-hot encoded colums
             ("one_hot", OneHotEncoder(handle_unknown="ignore"), one_hot_features),
         ]
     )
@@ -244,12 +286,24 @@ def sidebar_tuning(params: dict) -> tuple[str, dict]:
 
 @st.cache_data(show_spinner="Training and evaluating models with updated hyperparameters…")
 def train_models(data: pd.DataFrame, params: dict):
+
+    #Select the input features and target variables
     features = get_model_features(data)
     target = data[TARGET]
+
+    #Split the dataset into 80% training dayta and 20% testing data
+    #Stratification preserves the distribution of obesity classed
     x_train, x_test, y_train, y_test = train_test_split(
         features, target, test_size=0.20, random_state=RANDOM_STATE, stratify=target
     )
+
+    #Define Machine Learning Models
+    #Four classification models are created to predict the obesity level
+    #Random Forest, Decision Tree, Logistic Regression, and K-Nearest Neighbours
+    #The hyperparameters are obtained from the tuning results
     models = {
+
+        #Random Forest combines multiple decision tress to improve classification performance
         "Random Forest": RandomForestClassifier(
             n_estimators=params["rf_n_estimators"],
             max_depth=params["rf_max_depth"],
@@ -260,6 +314,8 @@ def train_models(data: pd.DataFrame, params: dict):
             random_state=RANDOM_STATE,
             n_jobs=-1,
         ),
+
+        #Decision Tree predicts the class by splitting the data according to feature conditions
         "Decision Tree": DecisionTreeClassifier(
             max_depth=params["dt_max_depth"],
             min_samples_split=params["dt_min_samples_split"],
@@ -268,6 +324,8 @@ def train_models(data: pd.DataFrame, params: dict):
             max_leaf_nodes=params["dt_max_leaf_nodes"],
             random_state=RANDOM_STATE,
         ),
+
+        #Logistic Regression performs multi-class classification using the selected regularization and solver settings
         "Logistic Regression": LogisticRegression(
             C=params["lr_c"],
             max_iter=params["lr_max_iter"],
@@ -276,6 +334,8 @@ def train_models(data: pd.DataFrame, params: dict):
             tol=params["lr_tol"],
             random_state=RANDOM_STATE,
         ),
+
+        #KNN classifies an observation based on its nearest neighbours.
         "K-Nearest Neighbors": KNeighborsClassifier(
             n_neighbors=params["knn_neighbors"],
             weights=params["knn_weights"],
@@ -283,9 +343,18 @@ def train_models(data: pd.DataFrame, params: dict):
             leaf_size=params["knn_leaf_size"],
         ),
     }
+
+    #Store trained pipelines and model performance results
     fitted, summaries = {}, []
+
+    #Train each model using the same preprocessing and evaluation process
     for name, classifier in models.items():
+
+        #Start the pipeline with the preprocessing step
         steps = [("preprocess", make_preprocessor(features))]
+
+        #Apply SMOTE only to the training data to balance the class distribution
+        #This prevents information from the test set from being used during training.
         if params["smote_enabled"]:
             # SMOTE is fitted only on x_train/y_train inside this pipeline.
             steps.append(
@@ -299,18 +368,41 @@ def train_models(data: pd.DataFrame, params: dict):
                     ),
                 )
             )
+
+        #Add the selected machine learning model to the pipeline
         steps.append(("model", classifier))
+
+        #Combine preprocesing, SMOTE, and the classifier into one complete training pipeline
         pipeline = ImbPipeline(steps)
+
+        #Train the model using the training dataset
         pipeline.fit(x_train, y_train)
+
+        #Generate predictions for the unseen test dataset
         predictions = pipeline.predict(x_test)
+
+        #Store the trained pipeline.
         fitted[name] = pipeline
+
+        #Evaluate each trained model using accuracy, macro-precision, macro-recall, and macro-F1 score
+        #Macro averging gives equal improtance to every obesity class.
         summaries.append(
             {
                 "Model": name,
+
+                #Percentage of correctly classified test samples
                 "Accuracy": accuracy_score(y_test, predictions),
+
+                #Measures the correctness of positive predictions across all obesity classes
                 "Precision": precision_score(y_test, predictions, average="macro"),
+
+                #Measures how well the model identifies each class
                 "Recall": recall_score(y_test, predictions, average="macro"),
+
+                #Harmonic mean of macro precision and macro recall
                 "F1-score": f1_score(y_test, predictions, average="macro"),
+
+                #Store predictions for later analysis
                 "Predictions": predictions,
             }
         )
@@ -697,13 +789,18 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
     habits_tab.altair_chart(hydration_chart, width="stretch")
 
 
+#Compare the performance of all trained models using accuracy, F1-score, precision, and recall
+#Models are ranked according to macro-F1 score
 def section_models(data: pd.DataFrame, params: dict) -> tuple[dict, pd.DataFrame]:
     models, results, y_test, _ = train_models(data, params)
 
+    #Select the main evaluation metrics and rank the models from the highest to the lowest macro-F1 score
     ranking = results[
         ["Model", "Accuracy", "F1-score", "Precision", "Recall"]
     ].sort_values("F1-score", ascending=False)
 
+    #Display information about the evaluation methodology
+    #All models use the tuned hyperparameters and the same stratified 80/20 train-test split
     st.subheader("Model comparison")
     st.caption(
         "All models use validation-selected hyperparameters and the same stratified "
@@ -791,6 +888,9 @@ def section_models(data: pd.DataFrame, params: dict) -> tuple[dict, pd.DataFrame
         width="stretch",
     )
 
+    #Create a confusion matrix for the selected model
+    #The matrix compares actual obesity levels with predicted pbesity levels
+    #It helps identify correctly and incorrectly classified categories
     matrix = confusion_matrix(
         y_test, predicted, labels=sorted(data[TARGET].unique())
     )
@@ -833,26 +933,36 @@ def section_models(data: pd.DataFrame, params: dict) -> tuple[dict, pd.DataFrame
 
     return models, results
 
-
+#Allow users to enter an individual's characteristics and use a trained machine learning model to predict the corresponding obesity level
 def section_prediction(data: pd.DataFrame, params: dict) -> None:
     models, results, _, _ = train_models(data, params)
-    
+
+    #Select the model with the highest macro-F1 score as the recommended model for prediction
     best_model = results.sort_values("F1-score", ascending=False).iloc[0]["Model"]
     
     st.subheader("Predict an obesity level")
+
+    #Allow the user to select any trained model
+    #The model with the highest F1-score is selected by default
     selected_model = st.selectbox("Prediction model", list(models), index=list(models).index(best_model))
     st.caption(f"Recommended by F1-score on the hold-out test set: {best_model}.")
-    
+
+    #Create a form that allows the user to enter demographic, lifestyle, and physical information
     features = get_model_features(data)
     values = {}
     with st.form("prediction_form"):
         columns = st.columns(2)
+
+        #Generate an input field for every model feature
         for i, column in enumerate(features.columns):
             with columns[i % 2]:
+
+                #Numerical variables use number input fields
                 if pd.api.types.is_numeric_dtype(features[column]):
                     minimum, maximum = float(features[column].min()), float(features[column].max())
                     default = float(features[column].median())
-                    
+
+                    #Age uses whole numbers
                     if column == "Age":
                         values[column] = st.number_input(
                             column,
@@ -862,20 +972,39 @@ def section_prediction(data: pd.DataFrame, params: dict) -> None:
                             step=1,
                             format="%d"
                         )
+
+                    #Height and weight use smaller decimal steps
                     else:
                         step = 0.01 if column in {"Height", "Weight"} else 0.1
                         values[column] = st.number_input(column, min_value=minimum, max_value=maximum, value=default, step=step)
+
+                #Categorical variables use a dropdown menu
                 else:
                     options = sorted(features[column].astype(str).unique())
                     values[column] = st.selectbox(column, options, index=options.index(str(features[column].mode().iloc[0])))
+
+        #Submit the input values for prediction
         submitted = st.form_submit_button("Predict obesity level", type="primary")
-        
+
+    #Perform the prediction after the user submits the form 
     if submitted:
+
+        #Convert the user's input into a DataFrame with the same features structure used during training
         person = pd.DataFrame([values])
+
+        #Retrieve the selected trained model
         model = models[selected_model]
+
+        #Predict the obesity category
         prediction = model.predict(person)[0]
+
+        #Calculate the probability of eevry possible obesity class
         probabilities = model.predict_proba(person)[0]
+
+        #Create a table containing each obesity level 
         probability_table = pd.DataFrame({"Obesity level": model.classes_, "Probability": probabilities}).sort_values("Probability", ascending=False)
+
+        #Display the final predicted obesity level
         st.success(f"Predicted obesity level: **{prediction}**")
         st.altair_chart(
             alt.Chart(probability_table).mark_bar().encode(
@@ -891,18 +1020,25 @@ def section_prediction(data: pd.DataFrame, params: dict) -> None:
             width="stretch",
         )
 
-
+#Main function responsible for running the Streamlit application
+#It loads the datasets, retrieves the tuned hyperparameters, applies the selected page layout, and controls navigation between the different application sections
 def main() -> None:
     st.title("Obesity Levels Prediction")
     try:
+        #Load both the raw and cleaned datasets
         data = load_data()
         raw_data = load_raw_data()
     except Exception as error:
+        #Display an error message if the datasets cannot be loaded
         st.error(f"Could not load the CSV: {error}")
         st.stop()
+
+    #Check whether the required target variable exists
     if TARGET not in data.columns:
         st.error(f"The CSV must include a '{TARGET}' target column.")
         st.stop()
+
+    #Load the best hyperparameters selected during tuning
     tuned_params = load_tuned_params()
 
     # Apply global theme overrides and transform st.segmented_control into underlined tabs
@@ -1013,6 +1149,7 @@ def main() -> None:
 
     # Conditionally execute page blocks
     if selected_tab == "Data explorer":
+        #Display raw, cleaned, and transformed versions of the datasets
         raw_tab, prepared_tab, transformed_tab = st.tabs(
             ["Raw dataset", "Cleaned dataset", "Training transformation"]
         )
@@ -1034,17 +1171,20 @@ def main() -> None:
             )
 
     elif selected_tab == "Charts":
+        #Dsiplay interactive charts and filters
         source_option, params = sidebar_tuning(tuned_params)
         subset = render_data_filters(data)
         models, _, _, _ = train_models(data, params)
         section_charts(subset, models, source_option)
 
     elif selected_tab == "Model comparison":
+        #Display model performance and comparison results
         section_models(data, tuned_params)
 
     elif selected_tab == "Make a prediction":
+        #Display the obesity-level prediction interfaces
         section_prediction(data, tuned_params)
 
-
+#Run the main Streamlit application when this Python file is executed directly
 if __name__ == "__main__":
     main()
