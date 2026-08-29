@@ -266,15 +266,15 @@ def make_transformed_explorer_data(data: pd.DataFrame) -> pd.DataFrame:
 
 
 def sidebar_tuning(params: dict) -> tuple[str, dict]:
-    st.sidebar.header("Chart Data Source")
+    st.sidebar.header("🔎 Distribution Source\n")
 
     source_option = st.sidebar.radio(
         "Display distributions based on:",
         options=[
             "Ground Truth (Actual Labels)",
-            "Predicted: Random Forest",
             "Predicted: Decision Tree",
             "Predicted: Logistic Regression",
+            "Predicted: Random Forest",
             "Predicted: K-Nearest Neighbors",
         ],
         index=0,
@@ -303,18 +303,6 @@ def train_models(data: pd.DataFrame, params: dict):
     #The hyperparameters are obtained from the tuning results
     models = {
 
-        #Random Forest combines multiple decision tress to improve classification performance
-        "Random Forest": RandomForestClassifier(
-            n_estimators=params["rf_n_estimators"],
-            max_depth=params["rf_max_depth"],
-            min_samples_split=params["rf_min_samples_split"],
-            min_samples_leaf=params["rf_min_samples_leaf"],
-            max_features=params["rf_max_features"],
-            max_leaf_nodes=params["rf_max_leaf_nodes"],
-            random_state=RANDOM_STATE,
-            n_jobs=-1,
-        ),
-
         #Decision Tree predicts the class by splitting the data according to feature conditions
         "Decision Tree": DecisionTreeClassifier(
             max_depth=params["dt_max_depth"],
@@ -333,6 +321,18 @@ def train_models(data: pd.DataFrame, params: dict):
             class_weight=params["lr_class_weight"],
             tol=params["lr_tol"],
             random_state=RANDOM_STATE,
+        ),
+
+        #Random Forest combines multiple decision tress to improve classification performance
+                "Random Forest": RandomForestClassifier(
+                    n_estimators=params["rf_n_estimators"],
+                    max_depth=params["rf_max_depth"],
+                    min_samples_split=params["rf_min_samples_split"],
+                    min_samples_leaf=params["rf_min_samples_leaf"],
+                    max_features=params["rf_max_features"],
+                    max_leaf_nodes=params["rf_max_leaf_nodes"],
+                    random_state=RANDOM_STATE,
+                    n_jobs=-1,
         ),
 
         #KNN classifies an observation based on its nearest neighbours.
@@ -410,7 +410,7 @@ def train_models(data: pd.DataFrame, params: dict):
 
 
 def render_data_filters(data: pd.DataFrame) -> pd.DataFrame:
-    st.sidebar.header("Data filters")
+    st.sidebar.header("⌛ Data filters")
     selected_classes = st.sidebar.multiselect(
         "Obesity level", sorted(data[TARGET].unique()), default=sorted(data[TARGET].unique())
     )
@@ -472,7 +472,7 @@ def section_charts(subset: pd.DataFrame, models: dict, source_option: str) -> No
     counts = chart_subset[target_col].value_counts()
 
     overview_tab, demographics_tab, habits_tab, body_tab = st.tabs(
-        ["Overview", "Demographics & Mobility", "Diet & Daily Habits", "Body & Physical Activity"]
+        ["📱 Overview", "🪪 Demographics & 🚗 Mobility", "🍴 Diet & Daily Habits", "🏃🏻‍♂️‍➡️ Body & Physical Activity 🏃🏻‍♀️"]
     )
 
     overview_tab.subheader("Obesity-level distribution")
@@ -801,14 +801,13 @@ def section_models(data: pd.DataFrame, params: dict) -> tuple[dict, pd.DataFrame
 
     #Display information about the evaluation methodology
     #All models use the tuned hyperparameters and the same stratified 80/20 train-test split
-    st.subheader("Model comparison")
+    st.subheader("⚖️ Model comparison")
     st.caption(
-        "All models use validation-selected hyperparameters and the same stratified "
-        "80/20 split (random state 42). BMI is excluded from training; SMOTE is "
-        "applied to training data only."
+        "All models use validation-selected hyperparameters and the same stratified 80/20 split (random state 42)."
+        "\n\nBMI is excluded from training; SMOTE is applied to training data only."
     )
     if TUNING_RESULTS_PATH.exists():
-        st.subheader("Exhaustive hyperparameter tuning results")
+        st.subheader("Best Hyperparameter Tuning Results")
         st.caption("Best macro-F1 result from every tested parameter combination (5-fold CV).")
         st.dataframe(
             load_tuning_results()
@@ -817,7 +816,7 @@ def section_models(data: pd.DataFrame, params: dict) -> tuple[dict, pd.DataFrame
             width="stretch",
             hide_index=True,
         )
-    st.subheader("Hold-out test set model performance")
+    st.subheader("Model Evaluation on Test Data")
     st.caption("Metrics from the same stratified 20% test set, ranked by macro F1-score.")
     st.dataframe(
         ranking.style.format(
@@ -940,12 +939,12 @@ def section_prediction(data: pd.DataFrame, params: dict) -> None:
     #Select the model with the highest macro-F1 score as the recommended model for prediction
     best_model = results.sort_values("F1-score", ascending=False).iloc[0]["Model"]
     
-    st.subheader("Predict an obesity level")
+    st.subheader("🧠 Predict an obesity level")
 
     #Allow the user to select any trained model
     #The model with the highest F1-score is selected by default
     selected_model = st.selectbox("Prediction model", list(models), index=list(models).index(best_model))
-    st.caption(f"Recommended by F1-score on the hold-out test set: {best_model}.")
+    st.caption(f"Recommended by best F1-score on the hold-out test set: {best_model}.")
 
     #Create a form that allows the user to enter demographic, lifestyle, and physical information
     features = get_model_features(data)
@@ -1023,7 +1022,7 @@ def section_prediction(data: pd.DataFrame, params: dict) -> None:
 #Main function responsible for running the Streamlit application
 #It loads the datasets, retrieves the tuned hyperparameters, applies the selected page layout, and controls navigation between the different application sections
 def main() -> None:
-    st.title("Obesity Levels Prediction")
+    st.title("🧬 Obesity Levels Prediction")
     try:
         #Load both the raw and cleaned datasets
         data = load_data()
@@ -1129,13 +1128,13 @@ def main() -> None:
     # Render native segmented control styled like underlined tabs
     selected_tab = st.segmented_control(
         "Navigation",
-        options=["Data explorer", "Charts", "Model comparison", "Make a prediction"],
-        default="Data explorer",
+        options=["🔎 Data explorer", "📊 Charts", "⚖️ Model comparison", "🧠 Make a prediction"],
+        default="🔎 Data explorer",
         label_visibility="collapsed",
     )
 
     # Only charts need interactive sidebar controls.
-    if selected_tab != "Charts":
+    if selected_tab != "📊 Charts":
         st.markdown(
             """
             <style>
@@ -1148,7 +1147,7 @@ def main() -> None:
         )
 
     # Conditionally execute page blocks
-    if selected_tab == "Data explorer":
+    if selected_tab == "🔎 Data explorer":
         #Display raw, cleaned, and transformed versions of the datasets
         raw_tab, prepared_tab, transformed_tab = st.tabs(
             ["Raw dataset", "Cleaned dataset", "Training transformation"]
@@ -1170,18 +1169,18 @@ def main() -> None:
                 "Dataset after training transformation",
             )
 
-    elif selected_tab == "Charts":
+    elif selected_tab == "📊 Charts":
         #Dsiplay interactive charts and filters
         source_option, params = sidebar_tuning(tuned_params)
         subset = render_data_filters(data)
         models, _, _, _ = train_models(data, params)
         section_charts(subset, models, source_option)
 
-    elif selected_tab == "Model comparison":
+    elif selected_tab == "⚖️ Model comparison":
         #Display model performance and comparison results
         section_models(data, tuned_params)
 
-    elif selected_tab == "Make a prediction":
+    elif selected_tab == "🧠 Make a prediction":
         #Display the obesity-level prediction interfaces
         section_prediction(data, tuned_params)
 
