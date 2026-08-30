@@ -14,4 +14,4 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The CSV is included in `data/`. You can also upload another CSV using the same column structure in the sidebar.
+The CSV is included in `data/`.
